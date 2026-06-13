@@ -43,3 +43,6 @@ packages/database/src/schema/generated/
 
 # Uploads (local dev)
 apps/api/uploads/
+
+.cache/
+.angular/cache/
