@@ -1,0 +1,310 @@
+@use '@angular/material' as mat;
+
+$m360-theme: mat.define-theme((
+  color: (
+    theme-type: light,
+    primary: mat.$blue-palette,
+  ),
+  density: (scale: -1),
+));
+
+html {
+  @include mat.all-component-themes($m360-theme);
+}
+
+// ── Design tokens ─────────────────────────────────────────────────────────────
+:root {
+  --blue:        #2563EB;
+  --blue-light:  #EFF6FF;
+  --blue-mid:    #BFDBFE;
+  --green:       #10B981;
+  --green-light: #ECFDF5;
+  --amber:       #F59E0B;
+  --amber-light: #FFFBEB;
+  --purple:      #7C3AED;
+  --purple-light:#F5F3FF;
+  --red:         #EF4444;
+  --red-light:   #FEF2F2;
+
+  --bg:          #F4F5F7;
+  --surface:     #FFFFFF;
+  --border:      #E5E7EB;
+  --border-light:#F3F4F6;
+  --text:        #111827;
+  --text-2:      #374151;
+  --text-3:      #6B7280;
+  --text-4:      #9CA3AF;
+
+  --radius-sm:   6px;
+  --radius-md:   8px;
+  --radius-lg:   10px;
+  --radius-xl:   12px;
+
+  --sidebar-w:   220px;
+  --topbar-h:    52px;
+
+  --shadow-sm:   0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:   0 4px 12px rgba(0,0,0,.08);
+}
+
+// ── Reset ─────────────────────────────────────────────────────────────────────
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+// ── Angular Material overrides ────────────────────────────────────────────────
+.mat-mdc-card {
+  border-radius: var(--radius-lg) !important;
+  box-shadow: none !important;
+  border: 1px solid var(--border) !important;
+  background: var(--surface) !important;
+}
+
+.mat-mdc-raised-button.mat-primary {
+  background: var(--blue) !important;
+  border-radius: var(--radius-md) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  height: 34px !important;
+  box-shadow: none !important;
+}
+
+.mat-mdc-button, .mat-mdc-stroked-button {
+  border-radius: var(--radius-md) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  height: 34px !important;
+}
+
+.mat-mdc-icon-button { border-radius: var(--radius-md) !important; }
+
+.mat-mdc-form-field {
+  .mdc-text-field--outlined {
+    --mdc-outlined-text-field-container-shape: var(--radius-md);
+    --mdc-outlined-text-field-outline-color: var(--border);
+    --mdc-outlined-text-field-hover-outline-color: #9CA3AF;
+    --mdc-outlined-text-field-focus-outline-color: var(--blue);
+  }
+  .mat-mdc-form-field-subscript-wrapper { display: none; }
+  &.show-hint .mat-mdc-form-field-subscript-wrapper { display: block; }
+}
+
+.mdc-data-table__header-row {
+  background: var(--bg) !important;
+}
+.mdc-data-table__header-cell {
+  color: var(--text-4) !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .4px !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+.mdc-data-table__row {
+  border-bottom: 1px solid var(--border-light) !important;
+  &:hover { background: #FAFAFA !important; }
+  &:last-child { border-bottom: none !important; }
+}
+.mdc-data-table__cell { font-size: 12.5px !important; color: var(--text-2) !important; }
+
+.mat-mdc-tab-group .mdc-tab { font-size: 12.5px !important; letter-spacing: 0 !important; }
+.mat-mdc-tab-group .mdc-tab--active { font-weight: 600 !important; }
+
+.mat-mdc-dialog-container {
+  --mdc-dialog-container-shape: var(--radius-xl);
+}
+.mat-mdc-dialog-title {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  color: var(--text) !important;
+  padding: 20px 24px 8px !important;
+}
+.mat-mdc-dialog-content { padding: 8px 24px 16px !important; }
+.mat-mdc-dialog-actions { padding: 8px 24px 16px !important; border-top: 1px solid var(--border); }
+
+.mat-mdc-snack-bar-container {
+  --mdc-snackbar-container-shape: var(--radius-md);
+  --mdc-snackbar-container-color: #1F2937;
+  font-size: 12.5px !important;
+}
+
+// ── Page layout ───────────────────────────────────────────────────────────────
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+
+  h1 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -.3px;
+  }
+  .subtitle {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-top: 3px;
+  }
+  .actions { display: flex; gap: 8px; align-items: center; }
+}
+
+// ── Metric cards ──────────────────────────────────────────────────────────────
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  &.blue::before   { background: var(--blue); }
+  &.green::before  { background: var(--green); }
+  &.amber::before  { background: var(--amber); }
+  &.purple::before { background: var(--purple); }
+  &.red::before    { background: var(--red); }
+
+  .mc-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: var(--text-3);
+    margin-bottom: 6px;
+  }
+  .mc-value {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -.5px;
+    line-height: 1.1;
+  }
+  .mc-sub {
+    font-size: 11px;
+    color: var(--text-3);
+    margin-top: 5px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .mc-sub.up     { color: var(--green); }
+  .mc-sub.warn   { color: var(--amber); }
+  .mc-sub.danger { color: var(--red); }
+
+  .mc-icon {
+    position: absolute;
+    top: 14px; right: 14px;
+    width: 32px; height: 32px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+  &.blue   .mc-icon { background: var(--blue-light);   color: var(--blue); }
+  &.green  .mc-icon { background: var(--green-light);  color: var(--green); }
+  &.amber  .mc-icon { background: var(--amber-light);  color: var(--amber); }
+  &.purple .mc-icon { background: var(--purple-light); color: var(--purple); }
+}
+
+// ── Section card ──────────────────────────────────────────────────────────────
+.section-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+
+  .sc-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-light);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    .sc-title { font-size: 13px; font-weight: 600; color: var(--text); }
+    .sc-sub   { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+    .sc-action { font-size: 11px; color: var(--blue); cursor: pointer; font-weight: 500; }
+  }
+
+  .sc-body { padding: 14px 16px; }
+}
+
+// ── Status badges ─────────────────────────────────────────────────────────────
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .2px;
+
+  &.badge-present, &.badge-paid     { background: var(--green-light);  color: #065F46; }
+  &.badge-absent,  &.badge-overdue  { background: var(--red-light);    color: #991B1B; }
+  &.badge-late,    &.badge-partial  { background: var(--amber-light);  color: #92400E; }
+  &.badge-pending                   { background: #EFF6FF;             color: #1E40AF; }
+  &.badge-holiday                   { background: var(--bg);           color: var(--text-3); }
+  &.badge-active                    { background: var(--green-light);  color: #065F46; }
+  &.badge-inactive                  { background: var(--bg);           color: var(--text-3); }
+}
+
+// ── Nav icon chips ────────────────────────────────────────────────────────────
+.nav-chip {
+  width: 26px; height: 26px;
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; flex-shrink: 0;
+  transition: background .15s;
+}
+
+// ── Utility ───────────────────────────────────────────────────────────────────
+.flex           { display: flex; }
+.flex-col       { flex-direction: column; }
+.items-center   { align-items: center; }
+.justify-between{ justify-content: space-between; }
+.gap-2          { gap: 8px; }
+.gap-3          { gap: 12px; }
+.gap-4          { gap: 16px; }
+.mt-3           { margin-top: 12px; }
+.mt-4           { margin-top: 16px; }
+.mb-4           { margin-bottom: 16px; }
+.w-full         { width: 100%; }
+.text-xs        { font-size: 11px; }
+.text-sm        { font-size: 12px; }
+.text-muted     { color: var(--text-3); }
+.font-medium    { font-weight: 500; }
+.font-semibold  { font-weight: 600; }
+.truncate       { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+// ── Scrollbar ─────────────────────────────────────────────────────────────────
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }
+
+// Journal dialog — override Material's default max-width constraint
+.journal-dialog .mat-mdc-dialog-container {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+.journal-dialog .mdc-dialog__surface {
+  max-width: 100% !important;
+  width: 100% !important;
+  overflow: hidden !important;
+}

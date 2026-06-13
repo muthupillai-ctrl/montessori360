@@ -1,0 +1,91 @@
+import type { EmergencyContact } from '@montessori360/shared';
+
+// ── Database row shapes ───────────────────────────────────────────────────────
+
+export interface StudentRow {
+  id: string;
+  admission_no: string;
+  first_name: string;
+  last_name: string;
+  dob: Date;
+  gender: 'male' | 'female' | 'other' | null;
+  class_id: string | null;
+  profile_photo: string | null;
+  blood_group: string | null;
+  nationality: string;
+  aadhar_no: string | null;
+  emergency_contacts: EmergencyContact[];
+  medical_notes: MedicalNotes;
+  dietary_notes: string | null;
+  allergies: string[];
+  previous_school: string | null;
+  admission_date: Date;
+  sibling_ids: string[];
+  transport_route_id: string | null;
+  is_active: boolean;
+  created_at: Date;
+  updated_at: Date;
+  // Joined fields
+  class_name?: string;
+}
+
+export interface ClassRow {
+  id: string;
+  name: string;
+  age_group_min: number | null;
+  age_group_max: number | null;
+  teacher_id: string | null;
+  capacity: number;
+  room_number: string | null;
+  is_active: boolean;
+  // Joined
+  teacher_name?: string;
+  enrolled_count?: number;
+}
+
+export interface MedicalNotes {
+  conditions?: string[];
+  medications?: string[];
+  doctor_name?: string;
+  doctor_phone?: string;
+  notes?: string;
+}
+
+// ── Request / response DTOs ───────────────────────────────────────────────────
+
+export interface CreateStudentDto {
+  first_name: string;
+  last_name: string;
+  dob: string;                        // ISO date string
+  gender?: 'male' | 'female' | 'other';
+  class_id?: string;
+  blood_group?: string;
+  nationality?: string;
+  aadhar_no?: string;
+  emergency_contacts: EmergencyContact[];
+  medical_notes?: MedicalNotes;
+  dietary_notes?: string;
+  allergies?: string[];
+  previous_school?: string;
+  admission_date?: string;
+  transport_route_id?: string;
+}
+
+export interface UpdateStudentDto extends Partial<CreateStudentDto> {}
+
+export interface StudentFilters {
+  class_id?: string;
+  is_active?: boolean;
+  search?: string;      // searches first_name, last_name, admission_no
+  page?: number;
+  limit?: number;
+}
+
+export interface LinkSiblingsDto {
+  student_id_a: string;
+  student_id_b: string;
+}
+
+export interface AssignClassDto {
+  class_id: string;
+}

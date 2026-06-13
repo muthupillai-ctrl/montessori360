@@ -1,0 +1,14 @@
+{
+  "name": "@montessori360/shared",
+  "version": "1.0.0",
+  "description": "Shared types, constants, and utilities for Montessori360",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.4"
+  }
+}
