@@ -128,3 +128,36 @@ export async function deleteClass(req: Request, res: Response): Promise<void> {
     res.status(400).json({ error: { code: 'BAD_REQUEST', message: err.message } });
   }
 }
+
+// ── Student Parents ───────────────────────────────────────────────────────────
+
+export async function listParents(req: Request, res: Response): Promise<void> {
+  const parents = await studentsService.listParents(
+    req.user!.tenantSchema, req.params['studentId'] as string
+  );
+  res.json({ data: parents });
+}
+
+export async function createParent(req: Request, res: Response): Promise<void> {
+  const parent = await studentsService.upsertParent(
+    req.user!.tenantSchema, req.params['studentId'] as string, req.body
+  );
+  res.status(201).json({ data: parent });
+}
+
+export async function updateParent(req: Request, res: Response): Promise<void> {
+  const parent = await studentsService.upsertParent(
+    req.user!.tenantSchema, req.params['studentId'] as string,
+    req.body, req.params['parentId'] as string
+  );
+  res.json({ data: parent });
+}
+
+export async function deleteParent(req: Request, res: Response): Promise<void> {
+  await studentsService.deleteParent(
+    req.user!.tenantSchema,
+    req.params['studentId'] as string,
+    req.params['parentId'] as string
+  );
+  res.json({ message: 'Parent record deleted' });
+}

@@ -200,6 +200,7 @@ class FeesService {
 
   async createInvoice(schema: string, dto: CreateInvoiceDto, createdBy: string): Promise<FeeInvoiceRow> {
     return tenantTransaction(schema, async (client) => {
+
       // Verify student
       const { rows: [student] } = await client.query(
         `SELECT id FROM ${schema}.students WHERE id = $1 AND is_active = true`,
@@ -207,21 +208,79 @@ class FeesService {
       );
       if (!student) throw AppError.notFound('Student');
 
+      // Determine invoice type
+      const invoiceType = dto.invoice_type ?? (
+        dto.fee_structure_id ? 'fee_structure' : 'adhoc'
+      );
+
+      // Duplicate check per type
+      if (invoiceType === 'fee_structure' && dto.fee_structure_id) {
+        const { rows: [dup] } = await client.query(
+          `SELECT invoice_no FROM ${schema}.fee_invoices
+           WHERE student_id = $1 AND billing_period = $2
+             AND fee_structure_id = $3 AND status != 'waived' LIMIT 1`,
+          [dto.student_id, dto.billing_period, dto.fee_structure_id]
+        );
+        if (dup) throw AppError.conflict(
+          `Invoice ${dup.invoice_no} already exists for this student, period and fee structure`
+        );
+      }
+
+      if (invoiceType === 'transport') {
+        const { rows: [dup] } = await client.query(
+          `SELECT invoice_no FROM ${schema}.fee_invoices
+           WHERE student_id = $1 AND billing_period = $2
+             AND invoice_type = 'transport' AND status != 'waived' LIMIT 1`,
+          [dto.student_id, dto.billing_period]
+        );
+        if (dup) throw AppError.conflict(
+          `Transport invoice ${dup.invoice_no} already exists for this student and period`
+        );
+      }
+
+      // Auto-add transport fee only if not already invoiced for this period
+      const lineItems = [...dto.line_items];
+      const hasTransport = lineItems.some(i => i.name === 'Transport Fee');
+      if (!hasTransport) {
+        try {
+          // Check if a transport invoice already exists for this student + period
+          const { rows: [existingTransport] } = await client.query(
+            `SELECT id FROM ${schema}.fee_invoices
+             WHERE student_id = $1 AND billing_period = $2
+               AND invoice_type = 'transport' AND status != 'waived' LIMIT 1`,
+            [dto.student_id, dto.billing_period]
+          );
+
+          if (!existingTransport) {
+            const { rows: [rt] } = await client.query(
+              `SELECT r.monthly_fee FROM ${schema}.route_students rs
+               JOIN ${schema}.transport_routes r ON r.id = rs.route_id
+               WHERE rs.student_id = $1 AND rs.is_active = true
+                 AND r.monthly_fee IS NOT NULL LIMIT 1`,
+              [dto.student_id]
+            );
+            if (rt?.monthly_fee > 0) {
+              lineItems.push({ name: 'Transport Fee', amount: +rt.monthly_fee });
+            }
+          }
+        } catch (_) { /* no transport assigned */ }
+      }
+
       const invoiceNo = await this.nextInvoiceNo(schema, client);
-      const subtotal  = dto.line_items.reduce((sum, item) => sum + item.amount, 0);
+      const subtotal  = lineItems.reduce((sum, item) => sum + item.amount, 0);
       const discount  = dto.discount ?? 0;
       const tax       = dto.tax ?? 0;
       const total     = subtotal - discount + tax;
 
       const { rows } = await client.query(
         `INSERT INTO ${schema}.fee_invoices
-           (invoice_no, student_id, fee_structure_id, billing_period,
+           (invoice_no, student_id, fee_structure_id, invoice_type, billing_period,
             line_items, subtotal, discount, tax, total, due_date, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
          RETURNING *`,
         [
           invoiceNo, dto.student_id, dto.fee_structure_id ?? null,
-          dto.billing_period, JSON.stringify(dto.line_items),
+          invoiceType, dto.billing_period, JSON.stringify(lineItems),
           subtotal, discount, tax, total, dto.due_date, createdBy,
         ]
       );
@@ -258,18 +317,40 @@ class FeesService {
     }
 
     // Build line items from structure heads (non-optional only for bulk)
-    const lineItems = structure.heads
+    const baseLineItems = structure.heads
       .filter(h => !h.is_optional)
       .map(h => ({ name: h.name, amount: h.amount }));
 
-    const subtotal = lineItems.reduce((sum, item) => sum + item.amount, 0);
     const discount = dto.discount ?? 0;
-    const total    = subtotal - discount;
+
+    // Fetch transport fees from route assignments
+    let transportFeeMap = new Map<string, number>();
+    try {
+      const transportFeeRows = await tenantQuery<{ student_id: string; monthly_fee: number }>(
+        schema,
+        `SELECT rs.student_id, r.monthly_fee
+         FROM ${schema}.route_students rs
+         JOIN ${schema}.transport_routes r ON r.id = rs.route_id
+         WHERE rs.student_id = ANY($1::uuid[])
+           AND rs.is_active = true
+           AND r.monthly_fee IS NOT NULL`,
+        [toInvoice.map(s => s.id)]
+      );
+      transportFeeMap = new Map(transportFeeRows.map(r => [r.student_id, +r.monthly_fee]));
+    } catch (_) { /* no transport assigned, skip */ }
 
     return tenantTransaction(schema, async (client) => {
       let count = 0;
       for (const student of toInvoice) {
-        const invoiceNo = await this.nextInvoiceNo(schema, client);
+        const invoiceNo  = await this.nextInvoiceNo(schema, client);
+        // Add transport fee line item if student has one
+        const lineItems  = [...baseLineItems];
+        const transportFee = transportFeeMap.get(student.id);
+        if (transportFee && transportFee > 0) {
+          lineItems.push({ name: 'Transport Fee', amount: transportFee });
+        }
+        const subtotal = lineItems.reduce((sum, item) => sum + item.amount, 0);
+        const total    = subtotal - discount;
         await client.query(
           `INSERT INTO ${schema}.fee_invoices
              (invoice_no, student_id, fee_structure_id, billing_period,

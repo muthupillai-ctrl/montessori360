@@ -5,8 +5,8 @@ import {
   validateCreateEvent, validateCreateTimetableSlot, validateCalendarFilters,
 } from './calendar.validators.js';
 import {
-  listAcademicYears, getCurrentYear, createAcademicYear, setCurrentYear,
-  listTerms, createTerm,
+  listAcademicYears, getCurrentYear, createAcademicYear, setCurrentYear, updateAcademicYear,
+  listTerms, createTerm, updateTerm, deleteTerm,
   listEvents, getEvent, createEvent, updateEvent, deleteEvent, getWorkingDays,
   getTimetable, createTimetableSlot, deleteTimetableSlot, bulkReplaceTimetable,
 } from './calendar.controller.js';
@@ -19,14 +19,17 @@ const MANAGE_ROLES  = ['owner', 'principal', 'teacher'];
 const VIEW_ROLES    = ['owner', 'principal', 'teacher', 'assistant_teacher', 'parent', 'accountant'];
 
 // ── Academic Years ─────────────────────────────────────────────────────────────
-calendarRouter.get( '/years',          authorize(...VIEW_ROLES),   listAcademicYears);
-calendarRouter.get( '/years/current',  authorize(...VIEW_ROLES),   getCurrentYear);
-calendarRouter.post('/years',          authorize(...ADMIN_ROLES),  validateCreateAcademicYear, createAcademicYear);
-calendarRouter.patch('/years/:id/set-current', authorize(...ADMIN_ROLES), setCurrentYear);
+calendarRouter.get(   '/years',                    authorize(...VIEW_ROLES),  listAcademicYears);
+calendarRouter.get(   '/years/current',            authorize(...VIEW_ROLES),  getCurrentYear);
+calendarRouter.post(  '/years',                    authorize(...ADMIN_ROLES), validateCreateAcademicYear, createAcademicYear);
+calendarRouter.put(   '/years/:id',                authorize(...ADMIN_ROLES), updateAcademicYear);
+calendarRouter.patch( '/years/:id/set-current',    authorize(...ADMIN_ROLES), setCurrentYear);
 
 // ── Terms ──────────────────────────────────────────────────────────────────────
-calendarRouter.get( '/terms',          authorize(...VIEW_ROLES),   listTerms);
-calendarRouter.post('/terms',          authorize(...ADMIN_ROLES),  validateCreateTerm, createTerm);
+calendarRouter.get(   '/terms',        authorize(...VIEW_ROLES),  listTerms);
+calendarRouter.post(  '/terms',        authorize(...ADMIN_ROLES), validateCreateTerm, createTerm);
+calendarRouter.put(   '/terms/:id',    authorize(...ADMIN_ROLES), updateTerm);
+calendarRouter.delete('/terms/:id',    authorize(...ADMIN_ROLES), deleteTerm);
 
 // ── Events ─────────────────────────────────────────────────────────────────────
 calendarRouter.get( '/events',         authorize(...VIEW_ROLES),   validateCalendarFilters, listEvents);

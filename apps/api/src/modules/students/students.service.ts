@@ -336,16 +336,16 @@ class StudentsService {
 
   // ── Update class ───────────────────────────────────────────────────────────
   async updateClass(schema: string, classId: string, dto: {
-    name?: string; capacity?: number; age_group_min?: number | null; age_group_max?: number | null; teacher_id?: string | null;
+    name?: string; section?: string | null; capacity?: number; age_group_min?: number | null; age_group_max?: number | null; teacher_id?: string | null; room_number?: string | null;
   }): Promise<ClassRow> {
     const fields: string[] = [];
     const values: unknown[] = [];
     let i = 1;
 
     const mapping: Record<string, unknown> = {
-      name: dto.name, capacity: dto.capacity,
+      name: dto.name, section: dto.section, capacity: dto.capacity,
       age_group_min: dto.age_group_min, age_group_max: dto.age_group_max,
-      teacher_id: dto.teacher_id,
+      teacher_id: dto.teacher_id, room_number: dto.room_number,
     };
     for (const [col, val] of Object.entries(mapping)) {
       if (val !== undefined) { fields.push(`${col} = $${i++}`); values.push(val); }
@@ -401,6 +401,81 @@ class StudentsService {
     if (cls.enrolled >= cls.capacity) {
       throw AppError.conflict(`Class is at full capacity (${cls.capacity} students)`);
     }
+  }
+
+  // ── Student Parents ───────────────────────────────────────────────────────
+
+  async listParents(schema: string, studentId: string): Promise<any[]> {
+    return tenantQuery<any>(schema,
+      `SELECT * FROM ${schema}.student_parents
+       WHERE student_id = $1
+       ORDER BY is_primary DESC, created_at ASC`,
+      [studentId]
+    );
+  }
+
+  async upsertParent(schema: string, studentId: string, dto: any, id?: string): Promise<any> {
+    // Enforce max 3 parents per student
+    if (!id) {
+      const [{ count }] = await tenantQuery<{ count: string }>(schema,
+        `SELECT COUNT(*)::text AS count FROM ${schema}.student_parents WHERE student_id = $1`,
+        [studentId]
+      );
+      if (parseInt(count) >= 3) throw AppError.badRequest('Maximum 3 parents allowed per student');
+    }
+
+    // If setting as primary, clear existing primary first
+    if (dto.is_primary) {
+      await tenantQuery(schema,
+        `UPDATE ${schema}.student_parents SET is_primary = false WHERE student_id = $1`,
+        [studentId]
+      );
+    }
+
+    if (id) {
+      // Update
+      const [row] = await tenantQuery<any>(schema,
+        `UPDATE ${schema}.student_parents SET
+           relation = $1, first_name = $2, last_name = $3, email = $4,
+           mobile = $5, mobile_alt = $6, profession = $7, employer = $8,
+           annual_income = $9, education = $10, is_primary = $11,
+           can_pickup = $12, notes = $13, updated_at = now()
+         WHERE id = $14 AND student_id = $15
+         RETURNING *`,
+        [
+          dto.relation, dto.first_name, dto.last_name, dto.email ?? null,
+          dto.mobile ?? null, dto.mobile_alt ?? null, dto.profession ?? null,
+          dto.employer ?? null, dto.annual_income ?? null, dto.education ?? null,
+          dto.is_primary ?? false, dto.can_pickup ?? true, dto.notes ?? null,
+          id, studentId,
+        ]
+      );
+      if (!row) throw AppError.notFound('Parent record not found');
+      return row;
+    } else {
+      // Create
+      const [row] = await tenantQuery<any>(schema,
+        `INSERT INTO ${schema}.student_parents
+           (student_id, relation, first_name, last_name, email, mobile, mobile_alt,
+            profession, employer, annual_income, education, is_primary, can_pickup, notes)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+         RETURNING *`,
+        [
+          studentId, dto.relation, dto.first_name, dto.last_name, dto.email ?? null,
+          dto.mobile ?? null, dto.mobile_alt ?? null, dto.profession ?? null,
+          dto.employer ?? null, dto.annual_income ?? null, dto.education ?? null,
+          dto.is_primary ?? false, dto.can_pickup ?? true, dto.notes ?? null,
+        ]
+      );
+      return row;
+    }
+  }
+
+  async deleteParent(schema: string, studentId: string, parentId: string): Promise<void> {
+    await tenantQuery(schema,
+      `DELETE FROM ${schema}.student_parents WHERE id = $1 AND student_id = $2`,
+      [parentId, studentId]
+    );
   }
 
   private async audit(

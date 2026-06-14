@@ -26,7 +26,7 @@ import type { SchoolClass, ApiResponse } from '../../core/models';
         <div class="dh-icon"><mat-icon>person_add</mat-icon></div>
         <div>
           <div class="dh-title">Enrol New Student</div>
-          <div class="dh-sub">Step {{ currentStep() + 1 }} of 3 — {{ stepLabels[currentStep()] }}</div>
+          <div class="dh-sub">Step {{ currentStep() + 1 }} of 4 — {{ stepLabels[currentStep()] }}</div>
         </div>
         <button class="dh-close" mat-dialog-close><mat-icon>close</mat-icon></button>
       </div>
@@ -130,21 +130,58 @@ import type { SchoolClass, ApiResponse } from '../../core/models';
               </div>
             </div>
 
+          </form>
+        }
+
+        <!-- ── Step 1: Medical ───────────────────────────────────── -->
+        @if (currentStep() === 1) {
+          <form [formGroup]="basicForm" class="step-form">
+
             <div class="field-group">
               <label class="field-label">Allergies <span class="hint">(comma separated)</span></label>
-              <input class="field-input" formControlName="allergies_text" placeholder="e.g. Peanuts, Dairy">
+              <input class="field-input" formControlName="allergies_text"
+                     placeholder="e.g. Peanuts, Dairy, Gluten">
             </div>
 
             <div class="field-group">
               <label class="field-label">Dietary Notes</label>
-              <input class="field-input" formControlName="dietary_notes" placeholder="e.g. Vegetarian, No egg">
+              <input class="field-input" formControlName="dietary_notes"
+                     placeholder="e.g. Vegetarian, No egg">
+            </div>
+
+            <div class="section-divider">Medical Conditions</div>
+
+            <div class="field-group">
+              <label class="field-label">Conditions</label>
+              <input class="field-input" formControlName="conditions_text"
+                     placeholder="e.g. Asthma, Diabetes (comma separated)">
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Medications</label>
+              <input class="field-input" formControlName="medications_text"
+                     placeholder="e.g. Inhaler, Insulin (comma separated)">
+            </div>
+
+            <div class="section-divider">Doctor Details</div>
+
+            <div class="form-row">
+              <div class="field-group flex-1">
+                <label class="field-label">Doctor Name</label>
+                <input class="field-input" formControlName="doctor_name" placeholder="Dr. Name">
+              </div>
+              <div class="field-group flex-1">
+                <label class="field-label">Doctor Phone</label>
+                <input class="field-input" formControlName="doctor_phone"
+                       placeholder="+91 XXXXX XXXXX">
+              </div>
             </div>
 
           </form>
         }
 
-        <!-- ── Step 1: Emergency Contacts ────────────────────────── -->
-        @if (currentStep() === 1) {
+        <!-- ── Step 2: Emergency Contacts ────────────────────────── -->
+        @if (currentStep() === 2) {
           <form [formGroup]="contactForm">
             <div class="step-intro">
               <mat-icon style="color:var(--blue)">info_outline</mat-icon>
@@ -198,6 +235,15 @@ import type { SchoolClass, ApiResponse } from '../../core/models';
                     @if (ctrl.get('phone')?.invalid && ctrl.get('phone')?.touched) {
                       <div class="field-error">Valid phone required</div>
                     }
+                    <div class="field-group">
+                      <label class="field-label">Email <span style="font-size:10px;color:var(--text-4);font-weight:400">(for parent portal)</span></label>
+                      <input class="field-input" type="email" formControlName="email"
+                             placeholder="parent@email.com"
+                             [class.err]="ctrl.get('email')?.invalid && ctrl.get('email')?.touched">
+                      @if (ctrl.get('email')?.invalid && ctrl.get('email')?.touched) {
+                        <div class="field-error">Invalid email address</div>
+                      }
+                    </div>
                   </div>
                 </div>
               }
@@ -209,9 +255,8 @@ import type { SchoolClass, ApiResponse } from '../../core/models';
             </button>
           </form>
         }
-
-        <!-- ── Step 2: Review ────────────────────────────────────── -->
-        @if (currentStep() === 2) {
+        <!-- ── Step 3: Review ────────────────────────────────────── -->
+        @if (currentStep() === 3) {
           <div class="review-panel">
 
             <div class="review-section">
@@ -259,6 +304,8 @@ import type { SchoolClass, ApiResponse } from '../../core/models';
                     <div class="cr-info">
                       <div class="cr-name">{{ c.name }}</div>
                       <div class="cr-detail">{{ (c.relation | titlecase) }} · {{ c.phone }}</div>
+                      @if (c.email) { <div class="cr-detail" style="color:var(--blue)">{{ c.email }}</div> }
+
                     </div>
                     @if ($index === 0) {
                       <span class="primary-tag">Primary</span>
@@ -289,13 +336,13 @@ import type { SchoolClass, ApiResponse } from '../../core/models';
               Back
             </button>
           }
-          @if (currentStep() < 2) {
+          @if (currentStep() < 3) {
             <button class="btn-primary" (click)="nextStep()" [disabled]="!canAdvance()">
               Continue
               <mat-icon style="font-size:15px;width:15px;height:15px">arrow_forward</mat-icon>
             </button>
           }
-          @if (currentStep() === 2) {
+          @if (currentStep() === 3) {
             <button class="btn-primary" (click)="submit()" [disabled]="submitting()">
               @if (submitting()) {
                 <mat-progress-spinner diameter="16" mode="indeterminate" style="--mdc-circular-progress-active-indicator-color:#fff" />
@@ -431,6 +478,8 @@ import type { SchoolClass, ApiResponse } from '../../core/models';
     .field-hint  { font-size: 11px; color: var(--text-3); margin-top: 3px; }
 
     /* Phone field */
+    .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .section-divider { font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-4);padding-top:4px;border-top:1px solid var(--border-light);margin-top:4px; }
     .phone-wrap { display: flex; align-items: center; gap: 0; }
     .phone-prefix {
       height: 36px; padding: 0 10px;
@@ -549,11 +598,13 @@ export class EnrolStudentDialogComponent implements OnInit {
   private dialogRef = inject(MatDialogRef<EnrolStudentDialogComponent>);
 
   classes    = signal<SchoolClass[]>([]);
+  routes     = signal<any[]>([]);
+  routeStops = signal<any[]>([]);
   submitting = signal(false);
   error      = signal('');
   currentStep = signal(0);
 
-  stepLabels = ['Basic Info', 'Emergency Contact', 'Review & Confirm'];
+  stepLabels = ['Basic Info', 'Medical', 'Emergency Contact', 'Review & Confirm'];
   bloodGroups = ['A+','A-','B+','B-','AB+','AB-','O+','O-'];
 
   basicForm = this.fb.group({
@@ -565,12 +616,22 @@ export class EnrolStudentDialogComponent implements OnInit {
     admission_date: [new Date().toISOString().slice(0, 10)],
     blood_group:    [''],
     nationality:    ['Indian'],
-    allergies_text: [''],
-    dietary_notes:  [''],
+    allergies_text:   [''],
+    dietary_notes:    [''],
+    conditions_text:  [''],
+    medications_text: [''],
+    doctor_name:      [''],
+    doctor_phone:     [''],
   });
 
   contactForm = this.fb.group({
     contacts: this.fb.array([this.newContact()]),
+  });
+
+  transportForm = this.fb.group({
+    route_id:       [''],
+    pickup_stop_id: [''],
+    drop_stop_id:   [''],
   });
 
   get contacts(): FormArray { return this.contactForm.get('contacts') as FormArray; }
@@ -586,6 +647,7 @@ export class EnrolStudentDialogComponent implements OnInit {
       name:     ['', Validators.required],
       relation: ['father'],
       phone:    ['', [Validators.required, Validators.pattern(/^[0-9]{10}$/)]],
+      email:    ['', [Validators.email]],
     });
   }
 
@@ -594,17 +656,38 @@ export class EnrolStudentDialogComponent implements OnInit {
 
   canAdvance(): boolean {
     if (this.currentStep() === 0) return this.basicForm.valid;
-    if (this.currentStep() === 1) return this.contactForm.valid;
+    if (this.currentStep() === 2) return this.contactForm.valid;
     return true;
   }
 
   nextStep() {
     if (this.currentStep() === 0) { this.basicForm.markAllAsTouched(); if (!this.basicForm.valid) return; }
-    if (this.currentStep() === 1) { this.contactForm.markAllAsTouched(); if (!this.contactForm.valid) return; }
+    if (this.currentStep() === 2) { this.contactForm.markAllAsTouched(); if (!this.contactForm.valid) return; }
+
     this.currentStep.update(s => s + 1);
   }
 
+  loadRoutes() {
+    this.api.get<any>('/transport/routes').subscribe({
+      next: (res: any) => this.routes.set(res.data ?? []),
+      error: () => {},
+    });
+  }
+
+  onRouteChange(routeId: string) {
+    this.transportForm.patchValue({ pickup_stop_id: '', drop_stop_id: '' });
+    if (!routeId) { this.routeStops.set([]); return; }
+    this.api.get<any>('/transport/routes/' + routeId).subscribe({
+      next: (res: any) => this.routeStops.set(res.data?.stops ?? []),
+      error: () => {},
+    });
+  }
+
   prevStep() { this.currentStep.update(s => s - 1); }
+
+  getRouteName(id: string): string {
+    return this.routes().find(r => r.id === id)?.name ?? '';
+  }
 
   getClassName(id: string | null | undefined): string {
     if (!id) return 'Unassigned';
@@ -617,7 +700,7 @@ export class EnrolStudentDialogComponent implements OnInit {
 
     const basic    = this.basicForm.value;
     const contacts = this.contactForm.value.contacts!.map((c: any, i: number) => ({
-      name: c.name, relation: c.relation, phone: '+91' + c.phone, is_primary: i === 0,
+      name: c.name, relation: c.relation, phone: '+91' + c.phone, email: c.email?.trim() || undefined, is_primary: i === 0,
     }));
 
     const allergies = basic.allergies_text
@@ -636,11 +719,34 @@ export class EnrolStudentDialogComponent implements OnInit {
     if (basic.class_id)      payload['class_id']      = basic.class_id;
     if (basic.blood_group)   payload['blood_group']   = basic.blood_group;
     if (basic.nationality)   payload['nationality']   = basic.nationality;
-    if (allergies.length)    payload['allergies']     = allergies;
-    if (basic.dietary_notes) payload['dietary_notes'] = basic.dietary_notes;
+    if (allergies.length)         payload['allergies']     = allergies;
+    if (basic.dietary_notes)      payload['dietary_notes'] = basic.dietary_notes;
+    const split = (s: string) => s ? s.split(',').map((x: string) => x.trim()).filter(Boolean) : [];
+    payload['medical_notes'] = {
+      conditions:   split(basic.conditions_text  ?? ''),
+      medications:  split(basic.medications_text ?? ''),
+      ...(basic.doctor_name?.trim()  ? { doctor_name:  basic.doctor_name.trim()  } : {}),
+      ...(basic.doctor_phone?.trim() ? { doctor_phone: basic.doctor_phone.trim() } : {}),
+    };
 
     this.api.post('/students', payload).subscribe({
-      next: (res: any) => { this.submitting.set(false); this.dialogRef.close(res.data); },
+      next: (res: any) => {
+        const student = res.data;
+        const t = this.transportForm.value;
+        // Assign transport if selected
+        if (t.route_id) {
+          this.api.post<any>('/transport/students/assign', {
+            student_id:     student.id,
+            route_id:       t.route_id,
+            stop_no:        1,
+            pickup_stop_id: t.pickup_stop_id || undefined,
+            drop_stop_id:   t.drop_stop_id   || undefined,
+
+          }).subscribe({ next: () => {}, error: () => {} });
+        }
+        this.submitting.set(false);
+        this.dialogRef.close(student);
+      },
       error: (err: any) => {
         this.submitting.set(false);
         this.error.set(err.error?.error?.message ?? 'Enrolment failed. Please check the details.');

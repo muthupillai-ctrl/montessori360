@@ -53,6 +53,31 @@ class CalendarService {
     });
   }
 
+  async updateAcademicYear(schema: string, id: string, dto: Partial<CreateAcademicYearDto>): Promise<AcademicYearRow> {
+    const fields: string[] = [];
+    const values: unknown[] = [];
+    let i = 1;
+    const mapping: Record<string, unknown> = {
+      name: dto.name, start_date: dto.start_date, end_date: dto.end_date,
+      working_days: dto.working_days,
+    };
+    for (const [col, val] of Object.entries(mapping)) {
+      if (val !== undefined) { fields.push(`${col} = $${i++}`); values.push(val); }
+    }
+    if (!fields.length) throw AppError.badRequest('No fields to update');
+    fields.push(`updated_at = now()`);
+    values.push(id);
+
+    const [row] = await tenantQuery<AcademicYearRow>(
+      schema,
+      `UPDATE ${schema}.academic_years SET ${fields.join(', ')} WHERE id = $${i} RETURNING *`,
+      values
+    );
+    if (!row) throw AppError.notFound('Academic year');
+    await cacheDel(`${schema}:calendar:years`);
+    return row;
+  }
+
   async setCurrentYear(schema: string, id: string): Promise<AcademicYearRow> {
     return tenantTransaction(schema, async (client) => {
       await client.query(`UPDATE ${schema}.academic_years SET is_current = false`);
@@ -88,6 +113,34 @@ class CalendarService {
     );
     await cacheSet(cacheKey, rows, CACHE_TTL);
     return rows;
+  }
+
+  async updateTerm(schema: string, id: string, dto: Partial<CreateTermDto>): Promise<TermRow> {
+    const fields: string[] = [];
+    const values: unknown[] = [];
+    let i = 1;
+    const mapping: Record<string, unknown> = {
+      name: dto.name, start_date: dto.start_date, end_date: dto.end_date, sort_order: dto.sort_order,
+    };
+    for (const [col, val] of Object.entries(mapping)) {
+      if (val !== undefined) { fields.push(`${col} = $${i++}`); values.push(val); }
+    }
+    if (!fields.length) throw AppError.badRequest('No fields to update');
+    values.push(id);
+    const [row] = await tenantQuery<TermRow>(
+      schema,
+      `UPDATE ${schema}.terms SET ${fields.join(', ')} WHERE id = $${i} RETURNING *`,
+      values
+    );
+    if (!row) throw AppError.notFound('Term');
+    await cacheDelPattern(`${schema}:calendar:terms:*`);
+    return row;
+  }
+
+  async deleteTerm(schema: string, id: string): Promise<void> {
+    const rows = await tenantQuery(schema, `DELETE FROM ${schema}.terms WHERE id = $1 RETURNING id`, [id]);
+    if (!rows.length) throw AppError.notFound('Term');
+    await cacheDelPattern(`${schema}:calendar:terms:*`);
   }
 
   async createTerm(schema: string, dto: CreateTermDto): Promise<TermRow> {

@@ -20,7 +20,10 @@ import { reportsRouter } from './modules/reports/reports.routes.js';
 import { calendarRouter } from './modules/calendar/calendar.routes.js';
 import { staffRouter } from './modules/staff/staff.routes.js';
 import { transportRouter } from './modules/transport/transport.routes.js';
+import { timetableRouter } from './modules/timetable/timetable.routes.js';
 import { analyticsRouter } from './modules/analytics/analytics.routes.js';
+import { promotionRouter } from './modules/promotion/promotion.routes.js';
+import { platformAdminRouter } from './modules/platform-admin/platform-admin.routes.js';
 
 export function createApp(): Application {
   const app = express();
@@ -58,6 +61,9 @@ export function createApp(): Application {
   // ── API v1 routes ─────────────────────────────────────────────────────────
   const v1 = express.Router();
 
+  // Platform admin routes (no tenant context — manages all schools)
+  v1.use('/platform', platformAdminRouter);
+
   // Public routes (no tenant context required)
   v1.use('/auth', authRouter);
 
@@ -72,8 +78,10 @@ export function createApp(): Application {
   v1.use('/reports', reportsRouter);
   v1.use('/calendar', calendarRouter);
   v1.use('/staff', staffRouter);
-  v1.use('/transport', transportRouter);
+  v1.use('/transport',  transportRouter);
+  v1.use('/timetable',  timetableRouter);
   v1.use('/analytics', analyticsRouter);
+  v1.use('/promotion', promotionRouter);
 
   app.use('/api/v1', v1);
 

@@ -1,7 +1,13 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
+import { platformAuthGuard } from './core/guards/platform-auth.guard';
 
 export const routes: Routes = [
+  {
+    path: 'driver',
+    loadComponent: () => import('./features/driver/driver.component').then(m => m.DriverComponent),
+    canActivate: [authGuard],
+  },
   {
     path: 'login',
     loadComponent: () => import('./features/auth/login/login.component').then(m => m.LoginComponent),
@@ -29,6 +35,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/fees/fees.component').then(m => m.FeesComponent),
       },
       {
+        path: 'classes',
+        loadComponent: () => import('./features/classes/classes.component').then(m => m.ClassesComponent),
+      },
+      {
         path: 'journal',
         loadComponent: () => import('./features/journal/journal.component').then(m => m.JournalComponent),
       },
@@ -49,8 +59,36 @@ export const routes: Routes = [
         loadComponent: () => import('./features/staff/staff.component').then(m => m.StaffComponent),
       },
       {
+        path: 'timetable',
+        loadComponent: () => import('./features/timetable/timetable.component').then(m => m.TimetableComponent),
+      },
+      {
+        path: 'transport',
+        loadComponent: () => import('./features/transport/transport.component').then(m => m.TransportComponent),
+      },
+      {
         path: 'communication',
         loadComponent: () => import('./features/communication/communication.component').then(m => m.CommunicationComponent),
+      },
+      {
+        path: 'academic-years',
+        loadComponent: () => import('./features/academic-years/academic-years.component').then(m => m.AcademicYearsComponent),
+      },
+    ],
+  },
+  {
+    path: 'platform/login',
+    loadComponent: () => import('./features/platform/login/platform-login.component').then(m => m.PlatformLoginComponent),
+  },
+  {
+    path: 'platform',
+    loadComponent: () => import('./features/platform/shell/platform-shell.component').then(m => m.PlatformShellComponent),
+    canActivate: [platformAuthGuard],
+    children: [
+      { path: '', redirectTo: 'schools', pathMatch: 'full' },
+      {
+        path: 'schools',
+        loadComponent: () => import('./features/platform/schools/platform-schools.component').then(m => m.PlatformSchoolsComponent),
       },
     ],
   },

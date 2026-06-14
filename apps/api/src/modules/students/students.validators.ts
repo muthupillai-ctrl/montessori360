@@ -7,6 +7,7 @@ const emergencyContactSchema = z.object({
   name:       z.string().min(1, 'Contact name is required'),
   relation:   z.string().min(1, 'Relation is required'),
   phone:      z.string().regex(/^\+?[0-9]{7,15}$/, 'Invalid phone number'),
+  email:      z.string().email('Invalid email').optional().or(z.literal('')),
   is_primary: z.boolean().default(false),
 });
 

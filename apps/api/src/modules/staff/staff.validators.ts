@@ -19,7 +19,7 @@ const emergencyContactSchema = z.object({
 export const createStaffSchema = z.object({
   email:          z.string().email(),
   password:       z.string().min(8),
-  role:           z.enum(['owner','principal','teacher','assistant_teacher','accountant','driver','support']),
+  role:           z.enum(['owner','principal','teacher','assistant_teacher','accountant','driver','support','admission_staff']),
   first_name:     z.string().min(1).max(100),
   last_name:      z.string().min(1).max(100),
   phone:          z.string().regex(/^\+?[0-9]{7,15}$/).optional(),
@@ -67,7 +67,7 @@ export const createShiftSchema = z.object({
 });
 
 export const staffFiltersSchema = z.object({
-  role:      z.enum(['owner','principal','teacher','assistant_teacher','accountant','driver','support']).optional(),
+  role:      z.enum(['owner','principal','teacher','assistant_teacher','accountant','driver','support','admission_staff']).optional(),
   is_active: z.preprocess(v => v === 'false' ? false : v === 'true' ? true : v, z.boolean()).optional(),
   search:    z.string().max(100).optional(),
   page:      z.preprocess(Number, z.number().int().min(1)).optional().default(1),
@@ -87,7 +87,7 @@ export const leaveFiltersSchema = z.object({
 export const payrollFiltersSchema = z.object({
   month: z.preprocess(Number, z.number().int().min(1).max(12)),
   year:  z.preprocess(Number, z.number().int().min(2020).max(2099)),
-  role:  z.enum(['owner','principal','teacher','assistant_teacher','accountant','driver','support']).optional(),
+  role:  z.enum(['owner','principal','teacher','assistant_teacher','accountant','driver','support','admission_staff']).optional(),
 });
 
 // ── Middleware ─────────────────────────────────────────────────────────────────

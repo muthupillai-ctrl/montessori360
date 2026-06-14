@@ -570,6 +570,27 @@ class AnalyticsService {
       []
     );
 
+    // Today's timetable for this teacher
+    const dayOfWeek = new Date().getDay(); // 0=Sun,1=Mon...6=Sat
+    const dbDayOfWeek = dayOfWeek === 0 ? null : dayOfWeek; // null = Sunday (no school)
+    let todaySchedule: any[] = [];
+    if (dbDayOfWeek) {
+      todaySchedule = await tenantQuery<any>(schema,
+        `SELECT ts.day_of_week, ts.slot_type, ts.notes,
+                tsl.name AS slot_name, tsl.start_time, tsl.end_time, tsl.sort_order,
+                sub.name AS subject_name, sub.color AS subject_color,
+                c.name AS class_name, c.section AS class_section
+         FROM   ${schema}.timetable_slots ts
+         JOIN   ${schema}.timetables tt ON tt.id = ts.timetable_id
+         JOIN   ${schema}.classes c ON c.id = tt.class_id
+         JOIN   ${schema}.template_slots tsl ON tsl.id = ts.template_slot_id
+         LEFT JOIN ${schema}.subjects sub ON sub.id = ts.subject_id
+         WHERE  ts.teacher_id = $1 AND ts.day_of_week = $2
+         ORDER  BY tsl.sort_order`,
+        [staffId, dbDayOfWeek]
+      );
+    }
+
     // Unread messages
     const [msgs] = await tenantQuery<any>(schema,
       `SELECT COUNT(*)::int AS unread FROM ${schema}.messages
@@ -578,11 +599,12 @@ class AnalyticsService {
     );
 
     return {
-      my_classes:   myClasses,
-      balance:      balance ?? null,
+      my_classes:     myClasses,
+      balance:        balance ?? null,
       leave_requests: myLeaveRequests,
       announcements,
       unread_messages: msgs?.unread ?? 0,
+      today_schedule:  todaySchedule,
       today,
     };
   }

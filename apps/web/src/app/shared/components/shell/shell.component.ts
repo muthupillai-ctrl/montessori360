@@ -302,34 +302,49 @@ export class ShellComponent implements OnInit {
 
   unreadCount = signal(0);
 
-  navGroups: NavGroup[] = [
-    {
-      label: 'Main',
-      items: [
-        { label: 'Dashboard',  icon: 'grid_view',   iconBg: 'rgba(37,99,235,.1)',   iconColor: '#2563EB', route: '/dashboard' },
-        { label: 'Students',   icon: 'people',      iconBg: 'rgba(124,58,237,.1)',  iconColor: '#7C3AED', route: '/students' },
-        { label: 'Attendance', icon: 'how_to_reg',  iconBg: 'rgba(16,185,129,.1)',  iconColor: '#10B981', route: '/attendance' },
-        { label: 'Fees',       icon: 'payments',    iconBg: 'rgba(245,158,11,.1)',  iconColor: '#F59E0B', route: '/fees' },
-      ],
-    },
-    {
-      label: 'Academics',
-      items: [
-        { label: 'Journal',      icon: 'auto_stories',  iconBg: 'rgba(236,72,153,.1)',  iconColor: '#EC4899', route: '/journal' },
-        { label: 'Observations', icon: 'psychology',    iconBg: 'rgba(99,102,241,.1)',  iconColor: '#6366F1', route: '/observations' },
-        { label: 'Reports',      icon: 'description',   iconBg: 'rgba(20,184,166,.1)',  iconColor: '#14B8A6', route: '/reports' },
-      ],
-    },
-    {
-      label: 'School',
-      items: [
-        { label: 'Calendar',      icon: 'calendar_month', iconBg: 'rgba(14,165,233,.1)',  iconColor: '#0EA5E9', route: '/calendar' },
-        { label: 'Staff',         icon: 'badge',          iconBg: 'rgba(168,85,247,.1)',  iconColor: '#A855F7', route: '/staff' },
-        { label: 'Transport',     icon: 'directions_bus', iconBg: 'rgba(20,184,166,.1)',  iconColor: '#14B8A6', route: '/transport' },
-        { label: 'Communication', icon: 'forum',          iconBg: 'rgba(249,115,22,.1)',  iconColor: '#F97316', route: '/communication' },
-      ],
-    },
-  ];
+  get navGroups(): NavGroup[] {
+    const role = this.auth.userRole();
+    if (role === 'driver') {
+      return [{
+        label: 'My Portal',
+        items: [
+          { label: 'My Trips', icon: 'directions_bus', iconBg: 'rgba(20,184,166,.1)', iconColor: '#14B8A6', route: '/driver' },
+          { label: 'Calendar', icon: 'calendar_month', iconBg: 'rgba(14,165,233,.1)', iconColor: '#0EA5E9', route: '/calendar' },
+        ],
+      }];
+    }
+    return [
+      {
+        label: 'Main',
+        items: [
+          { label: 'Dashboard',  icon: 'grid_view',  iconBg: 'rgba(37,99,235,.1)',  iconColor: '#2563EB', route: '/dashboard' },
+          { label: 'Students',   icon: 'people',     iconBg: 'rgba(124,58,237,.1)', iconColor: '#7C3AED', route: '/students' },
+          { label: 'Attendance', icon: 'how_to_reg', iconBg: 'rgba(16,185,129,.1)', iconColor: '#10B981', route: '/attendance' },
+          { label: 'Fees',       icon: 'payments',   iconBg: 'rgba(245,158,11,.1)', iconColor: '#F59E0B', route: '/fees' },
+        ],
+      },
+      {
+        label: 'Academics',
+        items: [
+          { label: 'Classes',      icon: 'class',             iconBg: 'rgba(5,150,105,.1)',  iconColor: '#059669', route: '/classes' },
+          { label: 'Timetable',    icon: 'calendar_view_week', iconBg: 'rgba(20,184,166,.1)', iconColor: '#14B8A6', route: '/timetable' },
+          { label: 'Journal',      icon: 'auto_stories',      iconBg: 'rgba(236,72,153,.1)', iconColor: '#EC4899', route: '/journal' },
+          { label: 'Observations', icon: 'psychology',        iconBg: 'rgba(99,102,241,.1)', iconColor: '#6366F1', route: '/observations' },
+          { label: 'Reports',      icon: 'description',  iconBg: 'rgba(20,184,166,.1)', iconColor: '#14B8A6', route: '/reports' },
+        ],
+      },
+      {
+        label: 'School',
+        items: [
+          { label: 'Calendar',       icon: 'calendar_month',  iconBg: 'rgba(14,165,233,.1)',  iconColor: '#0EA5E9', route: '/calendar' },
+          { label: 'Staff',          icon: 'badge',           iconBg: 'rgba(168,85,247,.1)',  iconColor: '#A855F7', route: '/staff' },
+          { label: 'Transport',      icon: 'directions_bus',  iconBg: 'rgba(20,184,166,.1)',  iconColor: '#14B8A6', route: '/transport' },
+          { label: 'Communication',  icon: 'forum',           iconBg: 'rgba(249,115,22,.1)',  iconColor: '#F97316', route: '/communication' },
+          { label: 'Academic Years', icon: 'school',          iconBg: 'rgba(16,185,129,.1)',  iconColor: '#10B981', route: '/academic-years' },
+        ],
+      },
+    ];
+  }
 
   isActive = (route: string) => this.router.url.startsWith(route);
 

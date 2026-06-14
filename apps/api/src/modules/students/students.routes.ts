@@ -9,14 +9,15 @@ import {
   listStudents, getStudent, createStudent, updateStudent, deactivateStudent,
   assignClass, getSiblings, linkSiblings, unlinkSiblings,
   promoteStudents, listClasses, createClass, updateClass, deleteClass,
+  listParents, createParent, updateParent, deleteParent,
 } from './students.controller.js';
 
 export const studentsRouter = Router();
 studentsRouter.use(authenticate);
 
 const ADMIN_ROLES  = ['owner', 'principal'];
-const VIEW_ROLES   = ['owner', 'principal', 'teacher', 'assistant_teacher', 'accountant'];
-const MANAGE_ROLES = ['owner', 'principal'];
+const VIEW_ROLES   = ['owner', 'principal', 'teacher', 'assistant_teacher', 'accountant', 'admission_staff'];
+const MANAGE_ROLES = ['owner', 'principal', 'admission_staff'];
 
 // ── Classes ───────────────────────────────────────────────────────────────────
 studentsRouter.get( '/classes', authorize(...VIEW_ROLES),  listClasses);

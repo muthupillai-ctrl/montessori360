@@ -19,11 +19,12 @@ staffRouter.use(authenticate);
 
 const ADMIN_ROLES   = ['owner', 'principal'];
 const HR_ROLES      = ['owner', 'principal', 'accountant'];
-const ALL_STAFF     = ['owner', 'principal', 'teacher', 'assistant_teacher', 'accountant', 'driver', 'support'];
+const ALL_STAFF     = ['owner', 'principal', 'teacher', 'assistant_teacher', 'accountant', 'driver', 'support', 'admission_staff'];
 
 // ── Staff CRUD ─────────────────────────────────────────────────────────────────
 staffRouter.get(   '/',          authorize(...ALL_STAFF),    validateStaffFilters, listStaff);
 staffRouter.post(  '/',          authorize(...ADMIN_ROLES),  validateCreateStaff,  createStaffMember);
+staffRouter.get(   '/me',        authorize(...ALL_STAFF),    getStaffMember);
 staffRouter.get(   '/:id',       authorize(...HR_ROLES),     getStaffMember);
 staffRouter.put(   '/:id',       authorize(...ADMIN_ROLES),  validateUpdateStaff,  updateStaffMember);
 staffRouter.delete('/:id',       authorize(...ADMIN_ROLES),  deactivateStaffMember);

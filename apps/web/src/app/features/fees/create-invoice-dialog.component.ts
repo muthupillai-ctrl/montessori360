@@ -82,7 +82,8 @@ import type { Student, SchoolClass, FeeStructure, ApiResponse, PaginatedResponse
                   </div>
                 } @else {
                   <select class="field-input" formControlName="student_id"
-                          [class.err]="form.get('student_id')?.invalid && form.get('student_id')?.touched">
+                          [class.err]="form.get('student_id')?.invalid && form.get('student_id')?.touched"
+                          (change)="onStudentChange($any($event.target).value)">
                     <option value="">— Select student ({{ students().length }} available) —</option>
                     @for (s of students(); track s.id) {
                       <option [value]="s.id">
@@ -95,6 +96,44 @@ import type { Student, SchoolClass, FeeStructure, ApiResponse, PaginatedResponse
               </div>
             </div>
           </div>
+
+          <!-- Transport fee notice -->
+          @if (transportLoading()) {
+            <div class="transport-notice loading">
+              <mat-icon style="font-size:14px;width:14px;height:14px">directions_bus</mat-icon>
+              Checking transport enrollment…
+            </div>
+          } @else if (transportRoute()) {
+            @if (transportAlreadyBilled()) {
+              <div class="transport-notice billed">
+                <mat-icon style="font-size:14px;width:14px;height:14px;color:var(--amber)">check_circle</mat-icon>
+                <div>
+                  <span class="tn-label">Transport enrolled:</span>
+                  <span class="tn-route">{{ transportRoute()!.route_name }}</span>
+                  <span class="tn-fee" style="color:var(--amber)">Already invoiced for this period — will not be added again</span>
+                </div>
+              </div>
+            } @else {
+              <div class="transport-notice">
+                <mat-icon style="font-size:14px;width:14px;height:14px;color:var(--green)">directions_bus</mat-icon>
+                <div>
+                  <span class="tn-label">Transport enrolled:</span>
+                  <span class="tn-route">{{ transportRoute()!.route_name }}</span>
+                  @if (transportRoute()!.route_code) {
+                    <span class="tn-code">{{ transportRoute()!.route_code }}</span>
+                  }
+                  @if (transportRoute()!.monthly_fee) {
+                    <span class="tn-fee">₹{{ transportRoute()!.monthly_fee | number:'1.0-0' }}/month will be added automatically</span>
+                  }
+                </div>
+              </div>
+            }
+          } @else if (form.value.student_id && !transportLoading()) {
+            <div class="transport-notice none">
+              <mat-icon style="font-size:14px;width:14px;height:14px;color:var(--text-3)">directions_bus</mat-icon>
+              <span style="color:var(--text-3)">No transport enrolled — transport fee will not be added</span>
+            </div>
+          }
 
           <!-- Invoice details -->
           <div class="section-block">
@@ -224,6 +263,15 @@ import type { Student, SchoolClass, FeeStructure, ApiResponse, PaginatedResponse
 
           <!-- Total preview -->
           <div class="total-preview">
+            @if (transportRoute()?.monthly_fee && !transportAlreadyBilled()) {
+              <div class="tp-row transport">
+                <span style="display:flex;align-items:center;gap:5px">
+                  <mat-icon style="font-size:13px;width:13px;height:13px">directions_bus</mat-icon>
+                  Transport Fee
+                </span>
+                <span>₹{{ transportRoute()!.monthly_fee | number:'1.0-0' }}</span>
+              </div>
+            }
             <div class="tp-row"><span>Subtotal</span><span>₹{{ subtotal() | number }}</span></div>
             @if ((form.value.discount ?? 0) > 0) {
               <div class="tp-row discount"><span>Discount</span><span>−₹{{ form.value.discount | number }}</span></div>
@@ -235,19 +283,24 @@ import type { Student, SchoolClass, FeeStructure, ApiResponse, PaginatedResponse
             <div class="tp-row total"><span>Total Payable</span><span>₹{{ grandTotal() | number }}</span></div>
           </div>
 
-          @if (error()) {
-            <div class="error-banner">
-              <mat-icon style="font-size:15px;width:15px;height:15px;flex-shrink:0">error_outline</mat-icon>
-              {{ error() }}
-            </div>
-          }
         </form>
       </div>
 
       <!-- Footer -->
+      @if (error()) {
+        <div class="error-footer">
+          <mat-icon style="font-size:14px;width:14px;height:14px;flex-shrink:0">error_outline</mat-icon>
+          {{ error() }}
+        </div>
+      }
       <div class="dialog-footer">
         <button class="btn-ghost" mat-dialog-close>Cancel</button>
-        <button class="btn-primary" (click)="submit()" [disabled]="form.invalid || !hasValidItems() || submitting()">
+        <span class="inv-type-badge" [class]="'type-' + invoiceType()">
+          {{ invoiceType() === 'fee_structure' ? '🏫 Fee Structure' :
+             invoiceType() === 'transport'     ? '🚌 Transport Only' :
+                                                 '📋 Ad-hoc' }}
+        </span>
+        <button class="btn-primary" (click)="submit()" [disabled]="!canSubmit() || submitting() || submitted()">
           @if (submitting()) {
             <mat-progress-spinner diameter="16" mode="indeterminate"
               style="--mdc-circular-progress-active-indicator-color:#fff" />
@@ -384,6 +437,27 @@ import type { Student, SchoolClass, FeeStructure, ApiResponse, PaginatedResponse
       &:hover { background: var(--blue-light); border-color: var(--blue-mid); }
     }
 
+    .transport-notice.billed { background: var(--amber-light); border-color: var(--amber); }
+    .inv-type-badge { font-size:11px;font-weight:600;padding:3px 10px;border-radius:10px;
+      &.type-fee_structure { background:var(--blue-light);color:var(--blue); }
+      &.type-transport     { background:var(--green-light);color:#065F46; }
+      &.type-adhoc         { background:var(--bg);color:var(--text-3);border:1px solid var(--border); }
+    }
+
+    /* Transport notice */
+    .transport-notice {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 10px 14px; border-radius: 8px; font-size: 12.5px;
+      background: var(--green-light); border: 1px solid var(--green);
+      &.loading { background: var(--bg); border-color: var(--border); color: var(--text-3); }
+      &.none    { background: var(--bg); border-color: var(--border); }
+    }
+    .tn-label { color: var(--text-2); margin-right: 4px; }
+    .tn-route { font-weight: 600; color: var(--text); margin-right: 4px; }
+    .tn-code  { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 5px; background: var(--green); color: #fff; margin-right: 6px; }
+    .tn-fee   { color: #065F46; font-weight: 600; display: block; margin-top: 2px; }
+    .tp-row.transport { color: var(--blue); font-size: 12.5px; border-bottom: 1px solid var(--border-light); padding-bottom: 6px; margin-bottom: 2px; }
+
     /* Total */
     .total-preview {
       background: #fff; border: 1px solid var(--border);
@@ -398,6 +472,13 @@ import type { Student, SchoolClass, FeeStructure, ApiResponse, PaginatedResponse
     }
     .tp-divider { height: 1px; background: var(--border); }
 
+    .error-footer {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 20px; background: var(--red-light);
+      border-top: 1px solid var(--red); font-size: 12.5px; color: #991B1B;
+      flex-shrink: 0;
+      mat-icon { color: var(--red); }
+    }
     .error-banner {
       display: flex; align-items: center; gap: 8px;
       background: var(--red-light); border: 1px solid #FECACA;
@@ -432,11 +513,24 @@ export class CreateInvoiceDialogComponent implements OnInit {
   classes           = signal<SchoolClass[]>([]);
   students          = signal<Student[]>([]);
   feeStructures     = signal<FeeStructure[]>([]);
-  studentsLoading   = signal(false);
+  studentsLoading    = signal(false);
+  transportRoute     = signal<any | null>(null);
+  transportLoading   = signal(false);
   selectedClass     = signal('');
   selectedStructure = signal('');
   billingType       = signal('monthly');
   submitting        = signal(false);
+  submitted              = signal(false);
+  transportAlreadyBilled = signal(false);
+
+  invoiceType = () => {
+    const hasStructure = !!this.selectedStructure();
+    const hasManual    = (this.form.value.line_items ?? []).some((i: any) => i.name?.trim() && +i.amount > 0);
+    const hasTransport = +(this.transportRoute()?.monthly_fee ?? 0) > 0;
+    if (hasStructure)               return 'fee_structure';
+    if (hasTransport && !hasManual) return 'transport';
+    return 'adhoc';
+  };
   error             = signal('');
 
   // Billing period options
@@ -491,8 +585,15 @@ export class CreateInvoiceDialogComponent implements OnInit {
 
   get lineItems(): FormArray { return this.form.get('line_items') as FormArray; }
 
+  canSubmit(): boolean {
+    const f = this.form.value;
+    return !!f.student_id && !!f.billing_period && !!f.due_date && this.hasValidItems();
+  }
+
   hasValidItems(): boolean {
-    return this.lineItems.controls.some(c => c.value.name && +c.value.amount > 0);
+    const hasManual = this.lineItems.controls.some(c => c.value.name && +c.value.amount > 0);
+    const hasTransport = +(this.transportRoute()?.monthly_fee ?? 0) > 0;
+    return hasManual || hasTransport;
   }
 
   ngOnInit() {
@@ -516,10 +617,49 @@ export class CreateInvoiceDialogComponent implements OnInit {
     });
   }
 
+  onStudentChange(studentId: string) {
+    this.transportRoute.set(null);
+    this.transportAlreadyBilled.set(false);
+    if (!studentId) return;
+    this.transportLoading.set(true);
+    this.api.get<any>('/transport/students/' + studentId).subscribe({
+      next: (res: any) => {
+        this.transportRoute.set(res.data);
+        this.transportLoading.set(false);
+        // Check if transport already invoiced for this billing period
+        if (res.data?.monthly_fee && this.form.value.billing_period) {
+          this.checkTransportBilled(studentId, this.form.value.billing_period);
+        }
+      },
+      error: () => this.transportLoading.set(false),
+    });
+  }
+
+  checkTransportBilled(studentId: string, billingPeriod: string) {
+    this.api.get<any>('/fees/invoices', {
+      student_id: studentId, invoice_type: 'transport',
+      billing_period: billingPeriod, limit: '1',
+    }).subscribe({
+      next: (res: any) => {
+        const items = res.data?.items ?? res.data ?? [];
+        this.transportAlreadyBilled.set(items.length > 0);
+      },
+      error: () => {},
+    });
+  }
+
   onClassChange(classId: string) {
     this.selectedClass.set(classId);
     this.form.patchValue({ student_id: '' });
     this.loadStudents(classId);
+  }
+
+  onBillingPeriodChange() {
+    const studentId = this.form.value.student_id;
+    const period    = this.form.value.billing_period;
+    if (studentId && period && this.transportRoute()) {
+      this.checkTransportBilled(studentId, period);
+    }
   }
 
   onBillingTypeChange(type: string) {
@@ -540,16 +680,16 @@ export class CreateInvoiceDialogComponent implements OnInit {
     while (this.lineItems.length) this.lineItems.removeAt(0);
     (structure.heads ?? []).forEach((head: any) => {
       this.lineItems.push(this.fb.group({
-        name:   [head.name, Validators.required],
-        amount: [head.amount, [Validators.required, Validators.min(0)]],
+        name:   [head.name],
+        amount: [head.amount, [Validators.min(0)]],
       }));
     });
   }
 
   newLineItem() {
     return this.fb.group({
-      name:   ['', Validators.required],
-      amount: [0, [Validators.required, Validators.min(0)]],
+      name:   [''],
+      amount: [0, [Validators.min(0)]],
     });
   }
 
@@ -557,7 +697,9 @@ export class CreateInvoiceDialogComponent implements OnInit {
   removeItem(i: number) { this.lineItems.removeAt(i); }
 
   subtotal(): number {
-    return this.lineItems.controls.reduce((sum, c) => sum + (+c.value.amount || 0), 0);
+    const lineTotal    = this.lineItems.controls.reduce((sum, c) => sum + (+c.value.amount || 0), 0);
+    const transportFee = this.transportAlreadyBilled() ? 0 : +(this.transportRoute()?.monthly_fee ?? 0);
+    return lineTotal + transportFee;
   }
   grandTotal(): number {
     return this.subtotal() - (+(this.form.value.discount ?? 0)) + (+(this.form.value.tax ?? 0));
@@ -573,8 +715,7 @@ export class CreateInvoiceDialogComponent implements OnInit {
   }
 
   submit() {
-    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
-    if (!this.hasValidItems()) { this.error.set('Add at least one fee item with a name and amount'); return; }
+    if (!this.canSubmit()) { this.form.markAllAsTouched(); return; }
     if (this.grandTotal() <= 0) { this.error.set('Total amount must be greater than zero'); return; }
 
     this.submitting.set(true);
@@ -582,18 +723,20 @@ export class CreateInvoiceDialogComponent implements OnInit {
 
     const val = this.form.value;
     const payload = {
-      student_id:     val.student_id,
-      billing_period: val.billing_period,
-      due_date:       val.due_date,
-      discount:       +(val.discount ?? 0),
-      tax:            +(val.tax ?? 0),
-      line_items:     (val.line_items ?? [])
-        .filter((i: any) => i.name && +i.amount > 0)
-        .map((i: any) => ({ name: i.name, amount: +i.amount })),
+      student_id:       val.student_id,
+      billing_period:   val.billing_period,
+      due_date:         val.due_date,
+      discount:         +(val.discount ?? 0),
+      tax:              +(val.tax ?? 0),
+      invoice_type:     this.invoiceType(),
+      fee_structure_id: this.selectedStructure() || undefined,
+      line_items:       (val.line_items ?? [])
+        .filter((i: any) => i.name?.trim() && +i.amount > 0)
+        .map((i: any) => ({ name: i.name.trim(), amount: +i.amount })),
     };
 
     this.api.post<any>('/fees/invoices', payload).subscribe({
-      next: (res: any) => { this.submitting.set(false); this.dialogRef.close(res.data); },
+      next: (res: any) => { this.submitting.set(false); this.submitted.set(true); this.dialogRef.close(res.data); },
       error: (err: any) => {
         this.submitting.set(false);
         this.error.set(err.error?.error?.message ?? 'Failed to create invoice. Please try again.');

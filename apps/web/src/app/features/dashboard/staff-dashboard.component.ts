@@ -1,7 +1,7 @@
 import { Component, inject, signal, OnInit, computed } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { DatePipe } from '@angular/common';
+import { DatePipe, TitleCasePipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -33,7 +33,7 @@ const QUICK_ACTIONS = [
 @Component({
   selector: 'app-staff-dashboard',
   standalone: true,
-  imports: [ MatIconModule, MatProgressSpinnerModule, DatePipe ],
+  imports: [ MatIconModule, MatProgressSpinnerModule, DatePipe, TitleCasePipe ],
   template: `
     @if (loading()) {
       <div class="loading-state"><mat-progress-spinner mode="indeterminate" diameter="32"/></div>
@@ -41,6 +41,42 @@ const QUICK_ACTIONS = [
       <div class="staff-dash">
 
         <!-- Row 1: Quick Actions + Announcements -->
+        <!-- Today's Timetable - full width above row-2 -->
+        @if (data()?.today_schedule !== undefined) {
+          <div class="widget today-schedule-widget">
+            <div class="widget-head">
+              <mat-icon class="wh-icon" style="color:var(--blue)">calendar_view_day</mat-icon>
+              Today's Schedule — {{ today | date:'EEEE, d MMM' }}
+            </div>
+            @if (!data()!.today_schedule?.length) {
+              <div class="empty-widget">No classes scheduled for today</div>
+            } @else {
+            <div class="ts-list">
+              @for (slot of data()!.today_schedule; track slot.slot_name) {
+                <div class="ts-row" [class]="'stype-' + slot.slot_type">
+                  <div class="ts-time">
+                    <div class="ts-start">{{ slot.start_time }}</div>
+                    <div class="ts-end">{{ slot.end_time }}</div>
+                  </div>
+                  <div class="ts-bar" [style.background]="slot.subject_color ?? '#E5E7EB'"></div>
+                  <div class="ts-info">
+                    <div class="ts-slot-name">{{ slot.slot_name }}</div>
+                    @if (slot.subject_name) {
+                      <div class="ts-subject" [style.color]="slot.subject_color">{{ slot.subject_name }}</div>
+                    } @else {
+                      <div class="ts-subject muted">{{ slot.slot_type | titlecase }}</div>
+                    }
+                  </div>
+                  <div class="ts-class">
+                    {{ slot.class_name }}{{ slot.class_section ? ' — ' + slot.class_section : '' }}
+                  </div>
+                </div>
+              }
+            </div>
+            }
+          </div>
+        }
+
         <div class="row-2">
 
           <!-- Quick Actions -->
@@ -202,6 +238,19 @@ const QUICK_ACTIONS = [
     .row-2 { display: grid; grid-template-columns: 1fr 1.4fr; gap: 12px; }
     .row-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 
+    .today-schedule-widget { margin-bottom: 14px; }
+    .ts-list { display: flex; flex-direction: column; }
+    .ts-row  { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-light); &:last-child { border: none; } &.stype-break { opacity: .6; } }
+    .ts-time  { width: 70px; flex-shrink: 0; }
+    .ts-start { font-size: 13px; font-weight: 600; color: var(--text-2); }
+    .ts-end   { font-size: 11px; color: var(--text-4); }
+    .ts-bar   { width: 4px; height: 36px; border-radius: 3px; flex-shrink: 0; }
+    .ts-info  { flex: 1; }
+    .ts-slot-name { font-size: 12px; color: var(--text-3); }
+    .ts-subject   { font-size: 14px; font-weight: 600; margin-top: 1px; }
+    .ts-subject.muted { color: var(--text-3) !important; }
+    .ts-class { font-size: 12px; font-weight: 600; color: var(--text-2); background: var(--bg); padding: 4px 10px; border-radius: 8px; white-space: nowrap; }
+
     .widget {
       background: var(--surface); border: 1px solid var(--border);
       border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px;
@@ -265,6 +314,7 @@ const QUICK_ACTIONS = [
 export class StaffDashboardComponent implements OnInit {
   private api    = inject(ApiService);
   private router = inject(Router);
+  private auth   = inject(AuthService);
 
   data    = signal<any | null>(null);
   loading = signal(true);
@@ -287,6 +337,7 @@ export class StaffDashboardComponent implements OnInit {
     ];
   }
 
+  isTeacher() { return ['teacher','assistant_teacher'].includes(this.auth.user()?.role ?? ''); }
   totalStudents() { return (this.data()?.my_classes ?? []).reduce((s: number, c: any) => s + (+c.student_count||0), 0); }
   totalPresent()  { return (this.data()?.my_classes ?? []).reduce((s: number, c: any) => s + (+c.present_today||0), 0); }
 

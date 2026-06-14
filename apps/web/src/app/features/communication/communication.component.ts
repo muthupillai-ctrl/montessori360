@@ -21,7 +21,7 @@ import type { Announcement, Conversation } from '../../core/models';
     MatTabsModule, MatMenuModule, DatePipe, TitleCasePipe,
   ],
   template: `
-    <mat-tab-group class="comm-page-tabs" (selectedTabChange)="onTabChange($event.index)">
+    <mat-tab-group class="comm-page-tabs" [selectedIndex]="selectedTabIndex()" (selectedTabChange)="onTabChange($event.index)">
 
       <!-- ── Announcements ────────────────────────────────── -->
       <mat-tab label="📢  Announcements">
@@ -759,6 +759,7 @@ export class CommunicationComponent implements OnInit {
   messages      = signal<any[]>([]);
   activeConv    = signal<Conversation | null>(null);
   unreadCount   = signal(0);
+  selectedTabIndex = signal(0);
   currentUserId = computed(() => this.auth.user()?.id ?? '');
 
   annLoading    = signal(true);
@@ -804,7 +805,15 @@ export class CommunicationComponent implements OnInit {
 
   loadUnreadCount() {
     this.api.get<any>('/communication/messages/unread-count').subscribe({
-      next: (res: any) => this.unreadCount.set(res.data?.unread_count ?? 0),
+      next: (res: any) => {
+        const count = res.data?.unread_count ?? res.data?.count ?? 0;
+        this.unreadCount.set(count);
+        // Auto-switch to Messages tab if there are unread messages
+        if (count > 0 && this.selectedTabIndex() !== 2) {
+          this.selectedTabIndex.set(2);
+          this.loadConversations();
+        }
+      },
       error: () => {},
     });
   }
@@ -976,6 +985,7 @@ export class CommunicationComponent implements OnInit {
 
   onTabChange(idx: number) {
     if (idx === 1) this.loadCirculars();
+    this.selectedTabIndex.set(idx);
     if (idx === 2) this.loadConversations();
   }
 

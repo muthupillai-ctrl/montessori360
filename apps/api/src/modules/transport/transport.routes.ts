@@ -1,53 +1,60 @@
 import { Router } from 'express';
 import { authenticate, authorize } from '../../middleware/auth.js';
 import {
-  validateCreateVehicle, validateCreateRoute, validateAssignStudent,
-  validateStartTrip, validateUpdateLocation, validateMarkBoarding,
-} from './transport.validators.js';
-import {
-  listVehicles, createVehicle, updateVehicle, getExpiryAlerts,
+  listVehicles, createVehicle, updateVehicle,
   listRoutes, getRoute, createRoute, updateRoute,
-  getRouteStudents, assignStudent, removeStudent,
-  listTrips, startTrip, completeTrip, cancelTrip,
-  updateLocation, getLiveLocation, getLocationHistory,
-  markBoarding, getTripBoardings,
+  createStop, updateStop, deleteStop,
+  assignStudent, removeStudent, getUnassigned,
+  listTrips, getTripDetail, startTrip, markBoarding, markDropped, completeTrip,
+  getTransportDashboard, getStudentTransport, updateTripDriver,
+  getTripReport, getStudentTransportReport, getDriverSchedule,
 } from './transport.controller.js';
 
 export const transportRouter = Router();
 transportRouter.use(authenticate);
 
-const ADMIN_ROLES  = ['owner', 'principal'];
-const MANAGE_ROLES = ['owner', 'principal', 'driver'];
-const VIEW_ROLES   = ['owner', 'principal', 'teacher', 'assistant_teacher', 'parent', 'driver'];
+const ADMIN       = ['owner', 'principal'];
+const ADMIN_ADMISSION = ['owner', 'principal', 'admission_staff'];
+const BOARD_ROLES = ['owner', 'principal', 'driver', 'support'];
+const ALL_STAFF   = ['owner', 'principal', 'teacher', 'assistant_teacher', 'accountant', 'admission_staff', 'driver', 'support'];
 
-// ── Vehicles ───────────────────────────────────────────────────────────────────
-transportRouter.get( '/vehicles',               authorize(...ADMIN_ROLES),  listVehicles);
-transportRouter.post('/vehicles',               authorize(...ADMIN_ROLES),  validateCreateVehicle, createVehicle);
-transportRouter.put( '/vehicles/:id',           authorize(...ADMIN_ROLES),  updateVehicle);
-transportRouter.get( '/vehicles/expiry-alerts', authorize(...ADMIN_ROLES),  getExpiryAlerts);
+// Driver schedule
+transportRouter.get('/driver/schedule', authorize(...BOARD_ROLES), getDriverSchedule);
 
-// ── Routes ─────────────────────────────────────────────────────────────────────
-transportRouter.get( '/routes',                 authorize(...VIEW_ROLES),   listRoutes);
-transportRouter.post('/routes',                 authorize(...ADMIN_ROLES),  validateCreateRoute, createRoute);
-transportRouter.get( '/routes/:id',             authorize(...VIEW_ROLES),   getRoute);
-transportRouter.put( '/routes/:id',             authorize(...ADMIN_ROLES),  updateRoute);
+// Reports
+transportRouter.get('/reports/trips',    authorize(...ALL_STAFF), getTripReport);
+transportRouter.get('/reports/students', authorize(...ALL_STAFF), getStudentTransportReport);
 
-// ── Route students ─────────────────────────────────────────────────────────────
-transportRouter.get(   '/routes/:id/students',              authorize(...VIEW_ROLES),   getRouteStudents);
-transportRouter.post(  '/routes/:id/students',              authorize(...ADMIN_ROLES),  validateAssignStudent, assignStudent);
-transportRouter.delete('/routes/:id/students/:studentId',   authorize(...ADMIN_ROLES),  removeStudent);
+// Dashboard
+transportRouter.get('/dashboard', authorize(...ALL_STAFF), getTransportDashboard);
 
-// ── Trips ──────────────────────────────────────────────────────────────────────
-transportRouter.get(   '/trips',                authorize(...VIEW_ROLES),   listTrips);
-transportRouter.post(  '/routes/:routeId/trips',authorize(...MANAGE_ROLES), validateStartTrip, startTrip);
-transportRouter.patch( '/trips/:id/complete',   authorize(...MANAGE_ROLES), completeTrip);
-transportRouter.patch( '/trips/:id/cancel',     authorize(...ADMIN_ROLES),  cancelTrip);
+// Vehicles — admin manage, all staff view
+transportRouter.get('/vehicles',     authorize(...ALL_STAFF), listVehicles);
+transportRouter.post('/vehicles',    authorize(...ADMIN),     createVehicle);
+transportRouter.put('/vehicles/:id', authorize(...ADMIN),     updateVehicle);
 
-// ── GPS Location ───────────────────────────────────────────────────────────────
-transportRouter.post('/routes/:routeId/trips/:tripId/location', authorize(...MANAGE_ROLES), validateUpdateLocation, updateLocation);
-transportRouter.get( '/routes/:routeId/location',               authorize(...VIEW_ROLES),   getLiveLocation);
-transportRouter.get( '/trips/:tripId/location-history',         authorize(...ADMIN_ROLES),  getLocationHistory);
+// Routes — admin manage, all staff view
+transportRouter.get('/routes',         authorize(...ALL_STAFF), listRoutes);
+transportRouter.get('/routes/:id',     authorize(...ALL_STAFF), getRoute);
+transportRouter.post('/routes',        authorize(...ADMIN),     createRoute);
+transportRouter.put('/routes/:id',     authorize(...ADMIN),     updateRoute);
 
-// ── Boarding ───────────────────────────────────────────────────────────────────
-transportRouter.post('/trips/:tripId/boarding',  authorize(...MANAGE_ROLES), validateMarkBoarding, markBoarding);
-transportRouter.get( '/trips/:tripId/boarding',  authorize(...VIEW_ROLES),   getTripBoardings);
+// Stops — admin manage
+transportRouter.post('/routes/:routeId/stops',           authorize(...ADMIN), createStop);
+transportRouter.put('/routes/:routeId/stops/:stopId',    authorize(...ADMIN), updateStop);
+transportRouter.delete('/routes/:routeId/stops/:stopId', authorize(...ADMIN), deleteStop);
+
+// Student assignments — admin + admission_staff can assign
+transportRouter.get('/students/unassigned',        authorize(...ADMIN_ADMISSION), getUnassigned);
+transportRouter.get('/students/:studentId',        authorize(...ALL_STAFF),       getStudentTransport);
+transportRouter.post('/students/assign',           authorize(...ADMIN_ADMISSION), assignStudent);
+transportRouter.delete('/students/:studentId',     authorize(...ADMIN_ADMISSION), removeStudent);
+
+// Trips — admin starts/completes, driver + all staff can mark boarding
+transportRouter.get('/trips',               authorize(...ALL_STAFF), listTrips);
+transportRouter.get('/trips/:id',           authorize(...ALL_STAFF), getTripDetail);
+transportRouter.post('/trips',              authorize(...ADMIN),     startTrip);
+transportRouter.post('/trips/:id/board',     authorize(...BOARD_ROLES), markBoarding);
+transportRouter.post('/trips/:id/drop',      authorize(...BOARD_ROLES), markDropped);
+transportRouter.patch('/trips/:id/driver',   authorize(...ADMIN),       updateTripDriver);
+transportRouter.patch('/trips/:id/complete', authorize(...BOARD_ROLES), completeTrip);

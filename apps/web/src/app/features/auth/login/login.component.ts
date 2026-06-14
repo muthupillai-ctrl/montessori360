@@ -393,7 +393,10 @@ export class LoginComponent {
     this.error.set('');
 
     this.auth.login(this.form.getRawValue()).subscribe({
-      next:  () => this.router.navigate(['/dashboard']),
+      next:  () => {
+        const role = this.auth.userRole();
+        this.router.navigate([role === 'driver' ? '/driver' : '/dashboard']);
+      },
       error: (err) => {
         this.loading.set(false);
         this.error.set(err.error?.error?.message ?? 'Invalid credentials. Please try again.');

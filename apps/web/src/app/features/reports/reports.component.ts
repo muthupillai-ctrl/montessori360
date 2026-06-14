@@ -6,6 +6,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { FormsModule } from '@angular/forms';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
 import { TemplateDialogComponent } from './template-dialog.component';
 import type { SchoolClass } from '../../core/models';
@@ -28,7 +29,7 @@ export interface ReportTemplate {
   standalone: true,
   imports: [
     MatIconModule, MatProgressSpinnerModule,
-    MatTabsModule, MatMenuModule, MatDialogModule, FormsModule,
+    MatTabsModule, MatMenuModule, MatDialogModule, FormsModule, DatePipe, DecimalPipe,
   ],
   template: `
     <mat-tab-group class="reports-page-tabs">
@@ -274,10 +275,195 @@ export interface ReportTemplate {
         </div>
       </mat-tab>
 
+
+      <!-- ── Transport Reports tab ──────────────────────────── -->
+      <mat-tab label="🚌  Transport">
+        <div class="tab-body">
+
+          <!-- Sub tabs -->
+          <div class="tr-tabs">
+            <button class="tr-tab" [class.active]="transportTab() === 'trips'"
+                    (click)="transportTab.set('trips')">Trip Reports</button>
+            <button class="tr-tab" [class.active]="transportTab() === 'students'"
+                    (click)="loadStudentTransportReport(); transportTab.set('students')">Student Enrollment</button>
+          </div>
+
+          <!-- ── Trip Reports ── -->
+          @if (transportTab() === 'trips') {
+            <div class="tr-section">
+              <div class="tr-filters">
+                <div class="tf-group">
+                  <label class="tf-label">From Date</label>
+                  <input class="tf-input" type="date" [(ngModel)]="tripFromDate">
+                </div>
+                <div class="tf-group">
+                  <label class="tf-label">To Date</label>
+                  <input class="tf-input" type="date" [(ngModel)]="tripToDate">
+                </div>
+                <div class="tf-group">
+                  <label class="tf-label">Route</label>
+                  <select class="tf-input" [(ngModel)]="tripRouteId">
+                    <option value="">All Routes</option>
+                    @for (r of transportRoutes(); track r.id) {
+                      <option [value]="r.id">{{ r.name }}</option>
+                    }
+                  </select>
+                </div>
+                <div class="tf-group">
+                  <label class="tf-label">Direction</label>
+                  <select class="tf-input" [(ngModel)]="tripType">
+                    <option value="">All</option>
+                    <option value="morning">🏫 Pickup</option>
+                    <option value="evening">🏠 Drop</option>
+                  </select>
+                </div>
+                <button class="tf-btn" (click)="loadTripReport()" [disabled]="tripReportLoading()">
+                  <mat-icon style="font-size:15px;width:15px;height:15px">search</mat-icon>
+                  Generate
+                </button>
+                @if (tripReport()) {
+                  <button class="tf-btn outline" (click)="exportTripCSV()">
+                    <mat-icon style="font-size:15px;width:15px;height:15px">download</mat-icon>
+                    Export CSV
+                  </button>
+                }
+              </div>
+
+              @if (tripReportLoading()) {
+                <div class="tr-loading"><mat-progress-spinner diameter="24" mode="indeterminate"/></div>
+              } @else if (tripReport()) {
+                <!-- Summary cards -->
+                <div class="tr-summary">
+                  <div class="ts-card"><div class="ts-val">{{ tripReport()!.summary.total_trips }}</div><div class="ts-lbl">Total Trips</div></div>
+                  <div class="ts-card"><div class="ts-val">{{ tripReport()!.summary.completed_trips }}</div><div class="ts-lbl">Completed</div></div>
+                  <div class="ts-card"><div class="ts-val">{{ tripReport()!.summary.total_boarded }}</div><div class="ts-lbl">Total Boarded</div></div>
+                  <div class="ts-card red"><div class="ts-val">{{ tripReport()!.summary.total_absent }}</div><div class="ts-lbl">Total Absent</div></div>
+                </div>
+
+                <!-- Trip table -->
+                <div class="tr-table-wrap">
+                  <table class="tr-table">
+                    <thead>
+                      <tr>
+                        <th>Date</th><th>Route</th><th>Direction</th><th>Driver</th>
+                        <th>Vehicle</th><th>Status</th><th class="tc">Students</th>
+                        <th class="tc">Boarded</th><th class="tc">Absent</th><th>Duration</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (t of tripReport()!.trips; track t.id) {
+                        <tr>
+                          <td class="fw">{{ t.trip_date | date:'d MMM yyyy' }}</td>
+                          <td>{{ t.route_name }}{{ t.route_code ? ' (' + t.route_code + ')' : '' }}</td>
+                          <td>
+                            <span class="dir-pill" [class.pickup]="t.trip_type==='morning'" [class.dropoff]="t.trip_type==='evening'">
+                              {{ t.trip_type === 'morning' ? '🏫 Pickup' : t.trip_type === 'evening' ? '🏠 Drop' : '⭐ Special' }}
+                            </span>
+                          </td>
+                          <td>{{ t.driver_name ?? '—' }}</td>
+                          <td>{{ t.vehicle_reg ?? '—' }}</td>
+                          <td><span class="status-pill" [class.done]="t.status==='completed'" [class.live]="t.status==='in_progress'">{{ t.status }}</span></td>
+                          <td class="tc">{{ t.total_students }}</td>
+                          <td class="tc green">{{ t.boarded_count }}</td>
+                          <td class="tc red">{{ t.absent_count }}</td>
+                          <td>{{ t.duration_mins ? (t.duration_mins | number:'1.0-0') + ' min' : '—' }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              } @else {
+                <div class="tr-empty">Select date range and click Generate</div>
+              }
+            </div>
+          }
+
+          <!-- ── Student Enrollment Report ── -->
+          @if (transportTab() === 'students') {
+            <div class="tr-section">
+              @if (studentTransportLoading()) {
+                <div class="tr-loading"><mat-progress-spinner diameter="24" mode="indeterminate"/></div>
+              } @else if (studentTransportReport()) {
+                <!-- Summary -->
+                <div class="tr-summary">
+                  <div class="ts-card"><div class="ts-val">{{ studentTransportReport()!.summary.total_enrolled }}</div><div class="ts-lbl">Students Enrolled</div></div>
+                  <div class="ts-card"><div class="ts-val">{{ studentTransportReport()!.summary.routes_used }}</div><div class="ts-lbl">Routes</div></div>
+                  <div class="ts-card green"><div class="ts-val">₹{{ studentTransportReport()!.summary.monthly_revenue | number:'1.0-0' }}</div><div class="ts-lbl">Monthly Revenue</div></div>
+                  <button class="tf-btn outline" style="align-self:center" (click)="exportStudentCSV()">
+                    <mat-icon style="font-size:15px;width:15px;height:15px">download</mat-icon>
+                    Export CSV
+                  </button>
+                </div>
+
+                <!-- Student table -->
+                <div class="tr-table-wrap">
+                  <table class="tr-table">
+                    <thead>
+                      <tr>
+                        <th>Adm No</th><th>Student</th><th>Class</th>
+                        <th>Route</th><th>Pickup Stop</th><th>Morning ETA</th>
+                        <th>Drop Stop</th><th>Evening ETA</th>
+                        <th>Vehicle</th><th>Driver</th>
+                        <th class="tc">Fee/Month</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (s of studentTransportReport()!.students; track s.admission_no) {
+                        <tr>
+                          <td class="mono">{{ s.admission_no }}</td>
+                          <td class="fw">{{ s.first_name }} {{ s.last_name }}</td>
+                          <td>{{ s.class_name ?? '—' }}</td>
+                          <td>{{ s.route_name }}{{ s.route_code ? ' (' + s.route_code + ')' : '' }}</td>
+                          <td>{{ s.pickup_stop ?? '—' }}</td>
+                          <td>{{ s.morning_eta ?? '—' }}</td>
+                          <td>{{ s.drop_stop ?? '—' }}</td>
+                          <td>{{ s.evening_eta ?? '—' }}</td>
+                          <td>{{ s.vehicle_reg }}</td>
+                          <td>{{ s.driver_name ?? '—' }}</td>
+                          <td class="tc green fw">₹{{ (s.monthly_fee || 0) | number:'1.0-0' }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </div>
+          }
+
+        </div>
+      </mat-tab>
+
     </mat-tab-group>
   `,
   styles: [`
     ::ng-deep .reports-page-tabs .mat-mdc-tab-body-wrapper { padding: 0; }
+    /* Transport report styles */
+    .tr-tabs { display: flex; gap: 4px; padding: 16px 0 0; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+    .tr-tab { padding: 7px 16px; border: none; background: none; font-size: 13px; font-weight: 500; color: var(--text-3); cursor: pointer; border-radius: 7px 7px 0 0; border-bottom: 2px solid transparent; margin-bottom: -1px; &:hover { background: var(--bg); } &.active { color: var(--blue); border-bottom-color: var(--blue); background: var(--blue-light); } }
+    .tr-section { display: flex; flex-direction: column; gap: 14px; }
+    .tr-filters { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+    .tf-group { display: flex; flex-direction: column; gap: 4px; }
+    .tf-label { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .3px; }
+    .tf-input { height: 34px; padding: 0 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 7px; font-size: 13px; color: var(--text); outline: none; font-family: inherit; min-width: 140px; &:focus { border-color: var(--blue); } }
+    .tf-btn { display: flex; align-items: center; gap: 5px; height: 34px; padding: 0 14px; border-radius: 7px; border: none; background: var(--blue); color: #fff; font-size: 13px; font-weight: 500; cursor: pointer; &:hover:not(:disabled) { background: #1D4ED8; } &:disabled { opacity: .6; cursor: not-allowed; } &.outline { background: var(--surface); border: 1px solid var(--border); color: var(--text-2); &:hover { background: var(--bg); } } }
+    .tr-summary { display: grid; grid-template-columns: repeat(auto-fill,minmax(140px,1fr)); gap: 10px; }
+    .ts-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; text-align: center; &.red { border-color: var(--red); background: var(--red-light); } &.green { border-color: var(--green); background: var(--green-light); } }
+    .ts-val { font-size: 22px; font-weight: 700; color: var(--text); }
+    .ts-lbl { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+    .tr-table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: auto; }
+    .tr-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .tr-table thead th { padding: 8px 12px; text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; color: var(--text-4); background: var(--bg); border-bottom: 1px solid var(--border); white-space: nowrap; }
+    .tr-table tbody tr { border-bottom: 1px solid var(--border-light); &:last-child { border-bottom: none; } &:hover { background: var(--bg); } }
+    .tr-table td { padding: 8px 12px; color: var(--text-2); white-space: nowrap; }
+    .fw   { font-weight: 600; color: var(--text) !important; }
+    .tc   { text-align: center; }
+    .mono { font-family: monospace; font-size: 11.5px; }
+    .green { color: var(--green) !important; }
+    .red   { color: var(--red) !important; }
+    .dir-pill { font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 5px; background: var(--bg); color: var(--text-2); &.pickup { background: var(--blue-light); color: var(--blue); } &.dropoff { background: var(--amber-light); color: #92400E; } }
+    .status-pill { font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 10px; background: var(--bg); color: var(--text-3); &.done { background: var(--green-light); color: #065F46; } &.live { background: var(--red-light); color: var(--red); } }
+    .tr-loading { display: flex; justify-content: center; padding: 40px; }
+    .tr-empty   { text-align: center; padding: 40px; color: var(--text-3); font-size: 13px; }
     .tab-body { padding-top: 16px; }
 
     .btn-primary-custom {
@@ -428,6 +614,18 @@ export interface ReportTemplate {
 })
 export class ReportsComponent implements OnInit {
   private api    = inject(ApiService);
+
+  // Transport report state
+  transportTab          = signal<'trips'|'students'>('trips');
+  transportRoutes       = signal<any[]>([]);
+  tripReport            = signal<any | null>(null);
+  studentTransportReport = signal<any | null>(null);
+  tripReportLoading     = signal(false);
+  studentTransportLoading = signal(false);
+  tripFromDate  = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0,10);
+  tripToDate    = new Date().toISOString().slice(0,10);
+  tripRouteId   = '';
+  tripType      = '';
   private dialog = inject(MatDialog);
   private snack  = inject(MatSnackBar);
 
@@ -457,7 +655,71 @@ export class ReportsComponent implements OnInit {
 
   canGenerate = computed(() => !!this.genTemplateId() && (!!this.genClass() || !!this.genStudentId()));
 
+  loadTripReport() {
+    this.tripReportLoading.set(true);
+    this.tripReport.set(null);
+    const params: Record<string,string> = {
+      from_date: this.tripFromDate,
+      to_date:   this.tripToDate,
+    };
+    if (this.tripRouteId) params['route_id'] = this.tripRouteId;
+    if (this.tripType)    params['trip_type'] = this.tripType;
+    this.api.get<any>('/transport/reports/trips', params).subscribe({
+      next: (res: any) => { this.tripReport.set(res.data); this.tripReportLoading.set(false); },
+      error: () => this.tripReportLoading.set(false),
+    });
+  }
+
+  loadStudentTransportReport() {
+    if (this.studentTransportReport()) return;
+    this.studentTransportLoading.set(true);
+    this.api.get<any>('/transport/reports/students').subscribe({
+      next: (res: any) => { this.studentTransportReport.set(res.data); this.studentTransportLoading.set(false); },
+      error: () => this.studentTransportLoading.set(false),
+    });
+  }
+
+  exportTripCSV() {
+    const trips = this.tripReport()?.trips ?? [];
+    const headers = ['Date','Route','Direction','Driver','Vehicle','Status','Students','Boarded','Absent','Duration(min)'];
+    const rows = trips.map((t: any) => [
+      t.trip_date, t.route_name, t.trip_type === 'morning' ? 'Pickup' : 'Drop',
+      t.driver_name ?? '', t.vehicle_reg ?? '', t.status,
+      t.total_students, t.boarded_count, t.absent_count,
+      t.duration_mins ? Math.round(t.duration_mins) : '',
+    ]);
+    this.downloadCSV('trip_report.csv', headers, rows);
+  }
+
+  exportStudentCSV() {
+    const students = this.studentTransportReport()?.students ?? [];
+    const headers = ['Adm No','First Name','Last Name','Class','Route','Pickup Stop','Morning ETA','Drop Stop','Evening ETA','Vehicle','Driver','Monthly Fee'];
+    const rows = students.map((s: any) => [
+      s.admission_no, s.first_name, s.last_name, s.class_name ?? '',
+      s.route_name, s.pickup_stop ?? '', s.morning_eta ?? '',
+      s.drop_stop ?? '', s.evening_eta ?? '',
+      s.vehicle_reg, s.driver_name ?? '', s.monthly_fee ?? 0,
+    ]);
+    this.downloadCSV('student_transport_report.csv', headers, rows);
+  }
+
+  private downloadCSV(filename: string, headers: string[], rows: any[][]) {
+    const lines = [headers, ...rows].map(r =>
+      r.map((v: any) => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(',')
+    );
+    const csv = lines.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+  }
+
   ngOnInit() {
+    this.api.get<any>('/transport/routes').subscribe({
+      next: (res: any) => this.transportRoutes.set(res.data ?? []),
+      error: () => {},
+    });
     this.api.get<any>('/students/classes').subscribe({
       next: (res: any) => this.classes.set(res.data ?? []),
     });

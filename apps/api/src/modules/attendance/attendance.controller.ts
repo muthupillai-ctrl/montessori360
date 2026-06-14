@@ -46,3 +46,20 @@ export async function getMonthlyReport(req: Request, res: Response): Promise<voi
   const report = await attendanceService.monthlyReport(req.user!.tenantSchema, filters);
   res.json({ data: report });
 }
+
+export async function getRoster(req: Request, res: Response): Promise<void> {
+  const date     = (req.query.date as string) || new Date().toISOString().slice(0, 10);
+  const classId  = req.query.class_id as string | undefined;
+  const isTeacher = ['teacher', 'assistant_teacher'].includes(req.user!.role);
+  const teacherId = isTeacher ? req.user!.sub : undefined;
+  const data = await attendanceService.getRoster(req.user!.tenantSchema, date, classId, teacherId);
+  res.json({ data });
+}
+
+export async function quickMark(req: Request, res: Response): Promise<void> {
+  const { student_id, date, status } = req.body;
+  const data = await attendanceService.quickMark(
+    req.user!.tenantSchema, student_id, date, status, req.user!.sub
+  );
+  res.json({ data });
+}

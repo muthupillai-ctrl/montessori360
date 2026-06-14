@@ -71,9 +71,10 @@ export interface ApiError {
 
 // ── Domain types ──────────────────────────────────────────────────────────────
 export interface EmergencyContact {
-  name: string;
-  relation: string;
-  phone: string;
+  name:       string;
+  relation:   string;
+  phone:      string;
+  email?:     string;   // used for parent portal login
   is_primary: boolean;
 }
 

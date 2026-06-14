@@ -18,6 +18,7 @@ import { DatePipe, TitleCasePipe } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { debounceTime, distinctUntilChanged, Subject } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
+import { AuthService } from '../../core/services/auth.service';
 import { EnrolStudentDialogComponent } from './enrol-student-dialog.component';
 import { EditClassDialogComponent } from './edit-class-dialog.component';
 import { EditStudentDialogComponent } from './edit-student-dialog.component';
@@ -44,14 +45,13 @@ import type { Student, SchoolClass, PaginatedResponse, ApiResponse } from '../..
         <div class="subtitle">{{ total() }} students enrolled across {{ classes().length }} classes</div>
       </div>
       <div class="actions">
-        <button class="btn-outline-custom" (click)="selectedTab.set(1)">
-          <mat-icon style="font-size:16px;width:16px;height:16px">class</mat-icon>
-          Manage Classes
-        </button>
-        <button class="btn-primary-custom" (click)="openEnrolDialog()">
-          <mat-icon style="font-size:16px;width:16px;height:16px">person_add</mat-icon>
-          Enrol Student
-        </button>
+
+        @if (canManage()) {
+          <button class="btn-primary-custom" (click)="openEnrolDialog()">
+            <mat-icon style="font-size:16px;width:16px;height:16px">person_add</mat-icon>
+            Enrol Student
+          </button>
+        }
       </div>
     </div>
 
@@ -126,7 +126,7 @@ import type { Student, SchoolClass, PaginatedResponse, ApiResponse } from '../..
                   Enrol your first student to get started.
                 }
               </div>
-              @if (!searchTerm()) {
+              @if (!searchTerm() && canManage()) {
                 <button class="btn-primary-custom" (click)="openEnrolDialog()">
                   <mat-icon style="font-size:16px;width:16px;height:16px">person_add</mat-icon>
                   Enrol First Student
@@ -183,16 +183,18 @@ import type { Student, SchoolClass, PaginatedResponse, ApiResponse } from '../..
                         <button mat-menu-item (click)="viewStudent(s)">
                           <mat-icon>visibility</mat-icon> View Profile
                         </button>
-                        <button mat-menu-item (click)="editStudent(s)">
-                          <mat-icon>edit</mat-icon> Edit Details
-                        </button>
-                        <button mat-menu-item (click)="openAssignClass(s)">
-                          <mat-icon>class</mat-icon> Assign Class
-                        </button>
-                        <mat-divider />
-                        <button mat-menu-item (click)="deactivate(s)" style="color:#EF4444">
-                          <mat-icon style="color:#EF4444">person_off</mat-icon> Deactivate
-                        </button>
+                        @if (canManage()) {
+                          <button mat-menu-item (click)="editStudent(s)">
+                            <mat-icon>edit</mat-icon> Edit Details
+                          </button>
+                          <button mat-menu-item (click)="openAssignClass(s)">
+                            <mat-icon>class</mat-icon> Assign Class
+                          </button>
+                          <mat-divider />
+                          <button mat-menu-item (click)="deactivate(s)" style="color:#EF4444">
+                            <mat-icon style="color:#EF4444">person_off</mat-icon> Deactivate
+                          </button>
+                        }
                       </mat-menu>
                     </td>
                   </tr>
@@ -212,93 +214,6 @@ import type { Student, SchoolClass, PaginatedResponse, ApiResponse } from '../..
                 showFirstLastButtons />
             </div>
           }
-        </div>
-      </mat-tab>
-
-      <!-- ── Tab 2: Classes ─────────────────────────────────────────── -->
-      <mat-tab label="Classes">
-        <div class="classes-panel">
-
-          <!-- Classes grid -->
-          <div class="classes-grid">
-            @for (cls of classes(); track cls.id) {
-              <div class="class-card">
-                <div class="cc-top">
-                  <div class="cc-icon" [style.background]="getClassColor(cls.name) + '20'" [style.color]="getClassColor(cls.name)">
-                    <mat-icon style="font-size:20px;width:20px;height:20px">class</mat-icon>
-                  </div>
-                  <button class="row-menu-btn" [matMenuTriggerFor]="classMenu">
-                    <mat-icon style="font-size:16px;width:16px;height:16px">more_horiz</mat-icon>
-                  </button>
-                  <mat-menu #classMenu="matMenu">
-                    <button mat-menu-item (click)="editClass(cls)"><mat-icon>edit</mat-icon> Edit Class</button>
-                    <button mat-menu-item (click)="confirmDeleteClass(cls)" style="color:#EF4444"><mat-icon style="color:#EF4444">delete</mat-icon> Delete</button>
-                  </mat-menu>
-                </div>
-                <div class="cc-name">{{ cls.name }}</div>
-                <div class="cc-meta">
-                  @if (cls.age_group_min && cls.age_group_max) {
-                    <span>{{ cls.age_group_min }}–{{ cls.age_group_max }} months</span>
-                  }
-                  @if (cls.teacher_name) {
-                    <span>· {{ cls.teacher_name }}</span>
-                  }
-                </div>
-                <div class="cc-fill">
-                  <div class="cf-track">
-                    <div class="cf-bar" [style.width.%]="getEnrolPct(cls)"
-                         [style.background]="getEnrolPct(cls) >= 90 ? 'var(--amber)' : 'var(--blue)'"></div>
-                  </div>
-                  <span class="cf-count">{{ cls.enrolled_count }}/{{ cls.capacity }}</span>
-                </div>
-              </div>
-            }
-
-            <!-- Add class card -->
-            <div class="class-card add-class-card" (click)="showAddClass.set(!showAddClass())">
-              <div class="ac-icon"><mat-icon>add_circle_outline</mat-icon></div>
-              <div class="ac-label">Add New Class</div>
-            </div>
-          </div>
-
-          <!-- Add class form -->
-          @if (showAddClass()) {
-            <div class="add-class-form">
-              <div class="acf-title">
-                <mat-icon style="color:var(--blue)">class</mat-icon>
-                New Class
-              </div>
-              <form [formGroup]="classForm" (ngSubmit)="submitClass()" class="acf-grid">
-                <div class="field-group">
-                  <label class="field-label">Class Name <span style="color:var(--red)">*</span></label>
-                  <input class="field-input" formControlName="name" placeholder="e.g. Casa 1">
-                </div>
-                <div class="field-group">
-                  <label class="field-label">Capacity <span style="color:var(--red)">*</span></label>
-                  <input class="field-input" type="number" formControlName="capacity" placeholder="20">
-                </div>
-                <div class="field-group">
-                  <label class="field-label">Age (months) From</label>
-                  <input class="field-input" type="number" formControlName="age_min" placeholder="24">
-                </div>
-                <div class="field-group">
-                  <label class="field-label">Age (months) To</label>
-                  <input class="field-input" type="number" formControlName="age_max" placeholder="48">
-                </div>
-                <div class="acf-actions">
-                  <button type="button" class="btn-outline-custom" (click)="showAddClass.set(false)">Cancel</button>
-                  <button type="submit" class="btn-primary-custom" [disabled]="classForm.invalid || addingClass()">
-                    @if (addingClass()) {
-                      <mat-progress-spinner diameter="14" mode="indeterminate" style="--mdc-circular-progress-active-indicator-color:#fff" />
-                    } @else {
-                      <ng-container>Create Class</ng-container>
-                    }
-                  </button>
-                </div>
-              </form>
-            </div>
-          }
-
         </div>
       </mat-tab>
 
@@ -495,9 +410,12 @@ import type { Student, SchoolClass, PaginatedResponse, ApiResponse } from '../..
 })
 export class StudentsComponent implements OnInit {
   private api    = inject(ApiService);
+  private auth   = inject(AuthService);
   private snack  = inject(MatSnackBar);
   private dialog = inject(MatDialog);
   private fb     = inject(FormBuilder);
+
+  canManage = () => ['owner', 'principal', 'admission_staff'].includes(this.auth.user()?.role ?? '');
 
   students      = signal<Student[]>([]);
   classes       = signal<SchoolClass[]>([]);
@@ -602,7 +520,7 @@ export class StudentsComponent implements OnInit {
 
   editStudent(s: Student) {
     const ref = this.dialog.open(EditStudentDialogComponent, {
-      data: s, width: '520px', disableClose: true,
+      data: s, width: '95vw', maxWidth: '560px', maxHeight: '90vh', disableClose: true,
     });
     ref.afterClosed().subscribe((updated: Student) => {
       if (updated) {

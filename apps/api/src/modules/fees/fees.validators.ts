@@ -32,8 +32,9 @@ export const createFeeStructureSchema = z.object({
 export const createInvoiceSchema = z.object({
   student_id:        z.string().uuid(),
   fee_structure_id:  z.string().uuid().optional(),
+  invoice_type:      z.enum(['fee_structure','transport','adhoc']).default('adhoc'),
   billing_period:    z.string().min(1).max(30),
-  line_items:        z.array(lineItemSchema).min(1),
+  line_items:        z.array(lineItemSchema).default([]),
   discount:          z.number().min(0).default(0),
   tax:               z.number().min(0).default(0),
   due_date:          isoDateSchema,

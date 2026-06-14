@@ -308,3 +308,48 @@ body {
   width: 100% !important;
   overflow: hidden !important;
 }
+
+// ── Mat Menu override — match app theme ────────────────────────────────────────
+.mat-mdc-menu-panel {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,.10) !important;
+  border-radius: var(--radius-lg) !important;
+  min-width: 160px !important;
+}
+
+.mat-mdc-menu-content {
+  padding: 4px !important;
+}
+
+.mat-mdc-menu-item {
+  border-radius: var(--radius-sm) !important;
+  min-height: 36px !important;
+  font-size: 13px !important;
+  color: var(--text-2) !important;
+  font-family: inherit !important;
+
+  &:hover {
+    background: var(--bg) !important;
+    color: var(--text) !important;
+  }
+
+  .mat-icon {
+    color: var(--text-3) !important;
+    font-size: 16px !important;
+    width: 16px !important;
+    height: 16px !important;
+    margin-right: 10px !important;
+  }
+
+  &[disabled] {
+    color: var(--text-4) !important;
+  }
+}
+
+// Divider inside menus
+.mat-mdc-menu-panel hr,
+.mat-divider {
+  border-color: var(--border) !important;
+  margin: 4px 0 !important;
+}

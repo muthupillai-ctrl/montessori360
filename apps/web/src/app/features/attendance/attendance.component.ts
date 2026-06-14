@@ -1,473 +1,482 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatMenuModule } from '@angular/material/menu';
-import { MatDialog } from '@angular/material/dialog';
-import { MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { DatePipe, TitleCasePipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
-import { CheckInDialogComponent } from './check-in-dialog.component';
-import { MarkAllDialogComponent } from './mark-all-dialog.component';
-import type { DailySummary, AttendanceRecord, SchoolClass, ApiResponse } from '../../core/models';
+import { AuthService } from '../../core/services/auth.service';
+
+interface RosterStudent {
+  id: string;
+  admission_no: string;
+  first_name: string;
+  last_name: string;
+  class_id: string | null;
+  class_name: string | null;
+  attendance_id: string | null;
+  status: 'present' | 'absent' | 'late' | 'half_day' | 'not_marked';
+  notes: string | null;
+}
+
+interface SchoolClass { id: string; name: string; enrolled_count: number; capacity: number; }
+
+const STATUS_CONFIG = {
+  present:    { label: 'P', fullLabel: 'Present',    color: '#065F46', bg: '#DCFCE7', active: '#10B981' },
+  absent:     { label: 'A', fullLabel: 'Absent',     color: '#991B1B', bg: '#FEE2E2', active: '#EF4444' },
+  late:       { label: 'L', fullLabel: 'Late',       color: '#92400E', bg: '#FEF3C7', active: '#F59E0B' },
+  half_day:   { label: 'H', fullLabel: 'Half Day',   color: '#1E40AF', bg: '#DBEAFE', active: '#3B82F6' },
+  not_marked: { label: '—', fullLabel: 'Not Marked', color: '#9CA3AF', bg: '#F3F4F6', active: '#9CA3AF' },
+};
 
 @Component({
   selector: 'app-attendance',
   standalone: true,
-  imports: [
-    MatIconModule, MatProgressSpinnerModule,
-    MatMenuModule, MatDialogModule, DatePipe, TitleCasePipe,
-  ],
+  imports: [ MatIconModule, MatProgressSpinnerModule, DatePipe, FormsModule ],
   template: `
-    <!-- Page header -->
-    <div class="page-header">
-      <div>
-        <h1>Attendance</h1>
-        <div class="subtitle">
-          {{ selectedDate() | date:'EEEE, d MMMM yyyy' }}
-          @if (summary()) {
-            · {{ summary()!.present + summary()!.late }} / {{ summary()!.total }} present
+    <div class="att-page">
+
+      <!-- Header -->
+      <div class="page-header">
+        <div>
+          <h1>Attendance</h1>
+          <div class="subtitle">{{ selectedDate() | date:'EEEE, d MMMM yyyy' }}</div>
+        </div>
+        <div class="header-actions">
+          <!-- Date navigator -->
+          <div class="date-nav">
+            <button class="nav-btn" (click)="changeDate(-1)">
+              <mat-icon style="font-size:17px;width:17px;height:17px">chevron_left</mat-icon>
+            </button>
+            <input type="date" class="date-input" [value]="selectedDate()"
+                   (change)="onDateChange($event)">
+            <button class="nav-btn" (click)="changeDate(1)" [disabled]="isToday()">
+              <mat-icon style="font-size:17px;width:17px;height:17px">chevron_right</mat-icon>
+            </button>
+          </div>
+          @if (isAdmin()) {
+            <button class="btn-outline" (click)="markAllPresent()" [disabled]="marking()">
+              <mat-icon style="font-size:15px;width:15px;height:15px">done_all</mat-icon>
+              Mark All Present
+            </button>
           }
         </div>
       </div>
-      <div class="actions">
-        <button class="btn-outline-custom" (click)="markAllPresent()" [disabled]="marking()">
-          <mat-icon style="font-size:16px;width:16px;height:16px">done_all</mat-icon>
-          Mark All Present
-        </button>
-        <button class="btn-primary-custom" (click)="openCheckIn()">
-          <mat-icon style="font-size:16px;width:16px;height:16px">how_to_reg</mat-icon>
-          Check In
-        </button>
-      </div>
-    </div>
 
-    <!-- Filter bar -->
-    <div class="filter-bar">
-      <div class="date-nav">
-        <button class="nav-btn" (click)="changeDate(-1)">
-          <mat-icon style="font-size:18px;width:18px;height:18px">chevron_left</mat-icon>
-        </button>
-        <input class="date-input" type="date"
-               [value]="selectedDateStr()"
-               (change)="onDateChange($any($event.target).value)" />
-        <button class="nav-btn" (click)="changeDate(1)" [disabled]="isTodaySelected()">
-          <mat-icon style="font-size:18px;width:18px;height:18px">chevron_right</mat-icon>
-        </button>
-        @if (!isTodaySelected()) {
-          <button class="today-btn" (click)="goToToday()">Today</button>
+      <!-- Class selector dropdown -->
+      <div class="class-selector-row">
+        <div class="class-select-wrap">
+          <mat-icon class="cs-icon">class</mat-icon>
+          <select class="class-select" [value]="selectedClass() ?? ''"
+                  (change)="onClassChange($event)">
+            @if (isAdmin()) {
+              <option value="">All Classes</option>
+            }
+            @for (cls of classes(); track cls.id) {
+              <option [value]="cls.id">
+                {{ cls.name }} — {{ cls.enrolled_count }} students
+              </option>
+            }
+          </select>
+        </div>
+        @if (selectedClass()) {
+          <div class="selected-class-info">
+            <span class="sci-name">{{ getClassName(selectedClass()!) }}</span>
+            <span class="sci-count">{{ roster().length }} students</span>
+          </div>
         }
       </div>
 
-      <div class="filter-selects">
-        <select class="filter-select" [value]="selectedClass()"
-                (change)="onClassChange($any($event.target).value)">
-          <option value="">All Classes</option>
-          @for (cls of classes(); track cls.id) {
-            <option [value]="cls.id">{{ cls.name }}</option>
-          }
-        </select>
-
-        <select class="filter-select" [value]="statusFilter()"
-                (change)="onStatusFilter($any($event.target).value)">
-          <option value="">All Status</option>
-          <option value="present">Present</option>
-          <option value="absent">Absent</option>
-          <option value="late">Late</option>
-          <option value="not_marked">Not Marked</option>
-        </select>
-      </div>
-
-      <button class="icon-btn" (click)="loadSummary()" title="Refresh">
-        <mat-icon style="font-size:18px;width:18px;height:18px">refresh</mat-icon>
-      </button>
-    </div>
-
-    @if (loading()) {
-      <div class="loading-state">
-        <mat-progress-spinner mode="indeterminate" diameter="32" />
-        <span>Loading attendance…</span>
-      </div>
-    }
-
-    @if (!loading() && summary(); as s) {
-
-      <!-- Stat cards -->
-      <div class="stats-row">
-        <div class="stat-card">
-          <div class="sc-icon blue"><mat-icon style="font-size:16px;width:16px;height:16px">people</mat-icon></div>
-          <div class="sc-body">
-            <div class="sc-value">{{ s.total }}</div>
-            <div class="sc-label">Total</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="sc-icon green"><mat-icon style="font-size:16px;width:16px;height:16px">check_circle</mat-icon></div>
-          <div class="sc-body">
-            <div class="sc-value" style="color:var(--green)">{{ s.present }}</div>
-            <div class="sc-label">Present</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="sc-icon red"><mat-icon style="font-size:16px;width:16px;height:16px">cancel</mat-icon></div>
-          <div class="sc-body">
-            <div class="sc-value" style="color:var(--red)">{{ s.absent }}</div>
-            <div class="sc-label">Absent</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="sc-icon amber"><mat-icon style="font-size:16px;width:16px;height:16px">schedule</mat-icon></div>
-          <div class="sc-body">
-            <div class="sc-value" style="color:var(--amber)">{{ s.late }}</div>
-            <div class="sc-label">Late</div>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="sc-icon grey"><mat-icon style="font-size:16px;width:16px;height:16px">help_outline</mat-icon></div>
-          <div class="sc-body">
-            <div class="sc-value" style="color:var(--text-3)">{{ s.not_marked }}</div>
-            <div class="sc-label">Not Marked</div>
-          </div>
-        </div>
-
-        <!-- Rate card -->
-        <div class="rate-card">
-          <div class="rate-header">
-            <span class="rate-label">Attendance Rate</span>
-            <span class="rate-value" [style.color]="getRate(s) >= 85 ? 'var(--green)' : 'var(--amber)'">
-              {{ getRate(s) }}%
-            </span>
-          </div>
-          <div class="rate-track">
-            <div class="rate-fill"
-                 [style.width.%]="getRate(s)"
-                 [style.background]="getRate(s) >= 85 ? 'var(--green)' : 'var(--amber)'"></div>
-          </div>
-          <div class="rate-sub">{{ s.present + s.late }} of {{ s.total }} students</div>
-        </div>
-      </div>
-
-      <!-- Records table -->
-      <div class="table-container">
-        @if (!filteredRecords().length) {
-          <div class="table-empty">
-            <div class="empty-icon">📋</div>
-            <div class="empty-title">No records found</div>
-            <div class="empty-sub">
-              @if (statusFilter()) {
-                No students with status "{{ statusFilter() | titlecase }}" for this date.
-              } @else {
-                No attendance records for {{ selectedDate() | date:'d MMMM yyyy' }}.
-              }
+      <!-- Summary strip -->
+      @if (roster().length) {
+        <div class="summary-strip">
+          <div class="summary-progress">
+            <div class="progress-bar">
+              <div class="progress-fill" [style.width.%]="markedPct()"></div>
             </div>
+            <span class="progress-label">{{ markedCount() }}/{{ roster().length }} marked</span>
           </div>
-        } @else {
-          <table class="data-table">
+          <div class="summary-chips">
+            <span class="schip green">✓ {{ countByStatus('present') }} Present</span>
+            <span class="schip red">✗ {{ countByStatus('absent') }} Absent</span>
+            <span class="schip amber">⏱ {{ countByStatus('late') }} Late</span>
+            <span class="schip grey">— {{ countByStatus('not_marked') }} Unmarked</span>
+          </div>
+          @if (isAdmin()) {
+            <button class="btn-outline" (click)="markAllPresent()" [disabled]="marking()">
+              <mat-icon style="font-size:14px;width:14px;height:14px">done_all</mat-icon>
+              Mark All Present
+            </button>
+          }
+        </div>
+      }
+
+      <!-- Roster list -->
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-progress-spinner diameter="28" mode="indeterminate"/>
+          <span>Loading students…</span>
+        </div>
+      } @else if (!roster().length) {
+        <div class="empty-state">
+          <mat-icon style="font-size:36px;width:36px;height:36px;color:var(--text-4)">groups</mat-icon>
+          <div>No students found for this class and date.</div>
+        </div>
+      } @else {
+        <!-- Search -->
+        <div class="search-row">
+          <div class="search-wrap">
+            <mat-icon class="search-icon">search</mat-icon>
+            <input class="search-input" [(ngModel)]="searchTerm" placeholder="Search by name or admission no…">
+            @if (searchTerm) {
+              <button class="clear-btn" (click)="searchTerm = ''">
+                <mat-icon style="font-size:15px;width:15px;height:15px">close</mat-icon>
+              </button>
+            }
+          </div>
+          <div class="filter-tabs">
+            <button class="ftab" [class.active]="statusFilter === ''"
+                    (click)="statusFilter = ''">All</button>
+            <button class="ftab" [class.active]="statusFilter === 'not_marked'"
+                    (click)="statusFilter = 'not_marked'">Unmarked</button>
+            <button class="ftab" [class.active]="statusFilter === 'present'"
+                    (click)="statusFilter = 'present'">Present</button>
+            <button class="ftab" [class.active]="statusFilter === 'absent'"
+                    (click)="statusFilter = 'absent'">Absent</button>
+            <button class="ftab" [class.active]="statusFilter === 'late'"
+                    (click)="statusFilter = 'late'">Late</button>
+          </div>
+        </div>
+
+        <div class="roster-container">
+          <table class="roster-table">
             <thead>
               <tr>
+                <th class="th-no">#</th>
                 <th>Student</th>
-                <th>Class</th>
-                <th>Status</th>
-                <th>Check In</th>
-                <th>Check Out</th>
-                <th>Mode</th>
-                <th>Notes</th>
+                @if (!selectedClass() && isAdmin()) { <th>Class</th> }
+                <th class="th-status">Status</th>
               </tr>
             </thead>
             <tbody>
-              @for (r of filteredRecords(); track r.id) {
-                <tr class="data-row">
-                  <td>
-                    <div class="student-cell">
-                      <div class="student-av" [style.background]="getAvatarColor(r.student_name ?? '')">
-                        {{ (r.student_name ?? '?')[0] }}
-                      </div>
-                      <div>
-                        <div class="cell-primary">{{ r.student_name }}</div>
-                        <div class="cell-secondary">{{ r.admission_no }}</div>
-                      </div>
+              @for (s of filteredRoster(); track s.id; let i = $index) {
+                <tr class="roster-row" [class]="'row-' + s.status">
+                  <td class="td-no">{{ i + 1 }}</td>
+                  <td class="td-student">
+                    <div class="student-av" [style.background]="getColor(s.first_name)">
+                      {{ s.first_name[0] }}{{ s.last_name[0] }}
+                    </div>
+                    <div class="student-info">
+                      <div class="student-name">{{ s.first_name }} {{ s.last_name }}</div>
+                      <div class="student-meta">{{ s.admission_no }}</div>
                     </div>
                   </td>
-                  <td class="text-sm">{{ r.class_name ?? '—' }}</td>
-                  <td>
-                    <span [class]="'badge badge-' + r.status">
-                      {{ r.status === 'not_marked' ? 'Not Marked' : (r.status | titlecase) }}
-                    </span>
+                  @if (!selectedClass() && isAdmin()) {
+                    <td class="td-class">{{ s.class_name ?? '—' }}</td>
+                  }
+                  <td class="td-status">
+                    <div class="seg-pill">
+                      @for (st of markableStatuses; track st.key) {
+                        <button class="seg-btn"
+                                [class.active]="s.status === st.key"
+                                [style.background]="s.status === st.key ? st.activeColor : ''"
+                                [style.color]="s.status === st.key ? '#fff' : ''"
+                                [disabled]="savingId() === s.id"
+                                (click)="mark(s, st.key)"
+                                [title]="st.fullLabel">
+                          {{ st.label }}
+                        </button>
+                      }
+                    </div>
                   </td>
-                  <td class="text-sm">
-                    {{ r.check_in_time ? (r.check_in_time | date:'h:mm a') : '—' }}
-                  </td>
-                  <td class="text-sm">
-                    {{ r.check_out_time ? (r.check_out_time | date:'h:mm a') : '—' }}
-                  </td>
-                  <td class="text-sm">
-                    @if (r.mode) {
-                      <span class="mode-chip">{{ r.mode | titlecase }}</span>
-                    } @else { — }
-                  </td>
-                  <td class="text-sm text-muted">{{ r.notes || '—' }}</td>
                 </tr>
               }
             </tbody>
           </table>
+        </div>
+      }
 
-          <div class="table-footer">
-            <div class="tf-info">
-              Showing {{ filteredRecords().length }} of {{ s.records.length }} records
-            </div>
-          </div>
-        }
-      </div>
-    }
+    </div>
   `,
   styles: [`
-    /* Buttons */
-    .btn-primary-custom {
-      display: inline-flex; align-items: center; gap: 6px;
-      background: var(--blue); color: #fff;
-      border: none; border-radius: 8px; padding: 0 16px; height: 36px;
-      font-size: 13px; font-weight: 500; cursor: pointer;
-      transition: background .15s;
-      &:hover:not(:disabled) { background: #1D4ED8; }
-      &:disabled { opacity: .6; cursor: not-allowed; }
-    }
-    .btn-outline-custom {
-      display: inline-flex; align-items: center; gap: 6px;
-      background: #fff; color: var(--text-2);
-      border: 1px solid var(--border); border-radius: 8px; padding: 0 14px; height: 36px;
-      font-size: 13px; font-weight: 500; cursor: pointer;
-      &:hover:not(:disabled) { background: var(--bg); }
-      &:disabled { opacity: .6; cursor: not-allowed; }
-    }
+    .att-page { display: flex; flex-direction: column; gap: 12px; }
 
-    /* Filter bar */
-    .filter-bar {
-      display: flex; gap: 10px; align-items: center;
-      margin-bottom: 16px; flex-wrap: wrap;
-    }
-    .date-nav {
-      display: flex; align-items: center; gap: 4px;
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 8px; padding: 2px 4px; height: 36px;
-    }
+    /* Header */
+    .page-header { display: flex; align-items: flex-start; justify-content: space-between; }
+    .header-actions { display: flex; align-items: center; gap: 8px; }
+    .date-nav { display: flex; align-items: center; gap: 4px; }
     .nav-btn {
-      background: none; border: none; cursor: pointer; color: var(--text-3);
-      width: 28px; height: 28px; border-radius: 5px;
+      width: 30px; height: 30px; border-radius: 7px;
+      background: var(--surface); border: 1px solid var(--border);
       display: flex; align-items: center; justify-content: center;
-      &:hover { background: var(--bg); color: var(--text-2); }
+      cursor: pointer; color: var(--text-2);
+      &:hover:not(:disabled) { background: var(--bg); }
       &:disabled { opacity: .4; cursor: not-allowed; }
     }
     .date-input {
-      border: none; outline: none; font-size: 13px; color: var(--text);
-      background: transparent; font-family: inherit; cursor: pointer;
-    }
-    .today-btn {
-      background: var(--blue-light); color: var(--blue); border: none;
-      border-radius: 5px; padding: 2px 8px; font-size: 11px; font-weight: 600;
-      cursor: pointer; white-space: nowrap;
-      &:hover { background: var(--blue-mid); }
-    }
-    .filter-selects { display: flex; gap: 8px; }
-    .filter-select {
-      height: 36px; padding: 0 10px;
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 8px; font-size: 13px; color: var(--text-2);
-      outline: none; cursor: pointer;
+      height: 30px; padding: 0 10px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 7px;
+      font-size: 12.5px; color: var(--text); outline: none; cursor: pointer;
       &:focus { border-color: var(--blue); }
     }
-    .icon-btn {
-      width: 36px; height: 36px; border-radius: 8px;
+    .btn-outline {
+      display: inline-flex; align-items: center; gap: 5px;
+      height: 30px; padding: 0 12px; border-radius: 7px;
       background: var(--surface); border: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer; color: var(--text-3);
-      &:hover { background: var(--bg); color: var(--text-2); }
+      font-size: 12px; color: var(--text-2); cursor: pointer;
+      &:hover:not(:disabled) { background: var(--bg); }
+      &:disabled { opacity: .5; cursor: not-allowed; }
     }
 
-    /* Loading */
-    .loading-state {
-      display: flex; align-items: center; gap: 12px;
-      justify-content: center; padding: 80px;
-      color: var(--text-3); font-size: 13px;
-    }
-
-    /* Stats row */
-    .stats-row {
-      display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap;
-    }
-    .stat-card {
-      display: flex; align-items: center; gap: 10px;
+    /* Class selector */
+    .class-selector-row { display: flex; align-items: center; gap: 12px; }
+    .class-select-wrap {
+      display: flex; align-items: center; gap: 8px;
       background: var(--surface); border: 1px solid var(--border);
-      border-radius: 9px; padding: 12px 16px; min-width: 100px;
+      border-radius: 8px; padding: 0 12px; height: 36px; min-width: 260px;
+      &:focus-within { border-color: var(--blue); }
     }
-    .sc-icon {
-      width: 32px; height: 32px; border-radius: 8px;
-      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-      &.blue  { background: var(--blue-light);   color: var(--blue); }
-      &.green { background: var(--green-light);  color: var(--green); }
-      &.red   { background: var(--red-light);    color: var(--red); }
-      &.amber { background: var(--amber-light);  color: var(--amber); }
-      &.grey  { background: var(--bg);           color: var(--text-3); }
+    .cs-icon { font-size: 16px; width: 16px; height: 16px; color: var(--text-3); flex-shrink: 0; }
+    .class-select {
+      flex: 1; border: none; background: none; outline: none;
+      font-size: 13px; font-weight: 500; color: var(--text); cursor: pointer;
+      font-family: inherit;
     }
-    .sc-value { font-size: 20px; font-weight: 700; color: var(--text); line-height: 1; }
-    .sc-label { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+    .selected-class-info { display: flex; align-items: center; gap: 8px; }
+    .sci-name  { font-size: 13px; font-weight: 600; color: var(--text); }
+    .sci-count { font-size: 12px; color: var(--text-3); padding: 2px 8px; background: var(--bg); border-radius: 10px; }
 
-    /* Rate card */
-    .rate-card {
-      flex: 1; min-width: 180px;
+    /* Summary strip */
+    .summary-strip { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .summary-progress { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 200px; }
+    .progress-bar { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--green); border-radius: 3px; transition: width .3s; }
+    .progress-label { font-size: 12px; font-weight: 600; color: var(--green); white-space: nowrap; }
+    .summary-chips { display: flex; gap: 5px; flex-wrap: wrap; }
+    .schip { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+    .schip.green { background: var(--green-light); color: #065F46; }
+    .schip.red   { background: var(--red-light);   color: #991B1B; }
+    .schip.amber { background: var(--amber-light);  color: #92400E; }
+    .schip.grey  { background: var(--bg);           color: var(--text-3); }
+
+    /* Search & filter */
+    .search-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .search-wrap {
+      display: flex; align-items: center; gap: 6px; flex: 1; min-width: 200px;
       background: var(--surface); border: 1px solid var(--border);
-      border-radius: 9px; padding: 12px 16px;
+      border-radius: 8px; padding: 0 10px; height: 34px;
+      &:focus-within { border-color: var(--blue); }
     }
-    .rate-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
-    .rate-label  { font-size: 12px; color: var(--text-3); font-weight: 500; }
-    .rate-value  { font-size: 18px; font-weight: 700; }
-    .rate-track  { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 5px; }
-    .rate-fill   { height: 100%; border-radius: 3px; transition: width .4s; }
-    .rate-sub    { font-size: 11px; color: var(--text-4); }
+    .search-icon { font-size: 16px; width: 16px; height: 16px; color: var(--text-4); flex-shrink: 0; }
+    .search-input { flex: 1; border: none; background: none; outline: none; font-size: 13px; color: var(--text); }
+    .clear-btn { background: none; border: none; cursor: pointer; color: var(--text-3); display: flex; align-items: center; }
+    .filter-tabs { display: flex; gap: 3px; }
+    .ftab {
+      padding: 4px 12px; border-radius: 6px; border: none;
+      background: var(--bg); font-size: 11.5px; color: var(--text-3); cursor: pointer;
+      &:hover { background: var(--border-light); }
+      &.active { background: var(--blue); color: #fff; font-weight: 500; }
+    }
 
-    /* Table */
-    .table-container {
+    /* Roster table */
+    .roster-container {
       background: var(--surface); border: 1px solid var(--border);
       border-radius: 10px; overflow: hidden;
     }
-    .table-empty {
-      display: flex; flex-direction: column; align-items: center;
-      justify-content: center; gap: 8px; padding: 60px;
-      color: var(--text-3); font-size: 13px;
+    .roster-table { width: 100%; border-collapse: collapse; }
+    .roster-table thead th {
+      padding: 9px 14px; text-align: left;
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .4px; color: var(--text-4);
+      background: var(--bg); border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 1;
     }
-    .empty-icon  { font-size: 36px; line-height: 1; }
-    .empty-title { font-size: 15px; font-weight: 600; color: var(--text-2); }
-    .empty-sub   { font-size: 13px; color: var(--text-3); text-align: center; }
+    .th-no     { width: 40px; }
+    .th-status { width: 140px; text-align: center; }
 
-    .data-table {
-      width: 100%; border-collapse: collapse;
-      th {
-        text-align: left; padding: 11px 14px;
-        font-size: 10px; font-weight: 600;
-        text-transform: uppercase; letter-spacing: .4px;
-        color: var(--text-4); background: var(--bg);
-        border-bottom: 1px solid var(--border);
-      }
-      td { padding: 10px 14px; border-bottom: 1px solid var(--border-light); vertical-align: middle; }
+    .roster-row {
+      border-bottom: 1px solid var(--border-light);
+      &:last-child { border-bottom: none; }
+      &:hover { background: var(--bg); }
+      &.row-present { background: #F0FDF4; &:hover { background: #DCFCE7; } }
+      &.row-absent  { background: #FEF2F2; &:hover { background: #FEE2E2; } }
+      &.row-late    { background: #FFFBEB; &:hover { background: #FEF3C7; } }
     }
-    .data-row {
-      transition: background .1s;
-      &:hover { background: #FAFAFA; }
-      &:last-child td { border-bottom: none; }
-    }
+    .td-no { padding: 8px 14px; font-size: 11px; color: var(--text-4); width: 40px; }
+    .td-student { padding: 7px 14px; display: flex; align-items: center; gap: 10px; }
+    .td-class { padding: 8px 14px; font-size: 12px; color: var(--text-3); }
+    .td-status { padding: 7px 14px; text-align: center; }
 
-    .student-cell { display: flex; align-items: center; gap: 10px; }
     .student-av {
-      width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
-      color: #fff; font-size: 12px; font-weight: 600;
-      display: flex; align-items: center; justify-content: center;
+      width: 30px; height: 30px; border-radius: 7px;
+      color: #fff; font-size: 10px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
-    .cell-primary   { font-size: 13px; font-weight: 500; color: var(--text); }
-    .cell-secondary { font-size: 11px; color: var(--text-3); margin-top: 1px; }
-    .text-sm   { font-size: 12.5px; color: var(--text-2); }
-    .text-muted { color: var(--text-3); }
+    .student-name { font-size: 13px; font-weight: 500; color: var(--text); }
+    .student-meta { font-size: 10.5px; color: var(--text-3); }
 
-    .mode-chip {
-      background: var(--bg); color: var(--text-3);
-      font-size: 11px; padding: 2px 7px; border-radius: 4px;
+    /* Segmented pill — THE KEY DESIGN */
+    .seg-pill {
+      display: inline-flex; border: 1.5px solid var(--border);
+      border-radius: 7px; overflow: hidden;
+    }
+    .seg-btn {
+      height: 26px; padding: 0 12px; border: none; border-right: 1px solid var(--border);
+      background: var(--bg); font-size: 11px; font-weight: 700;
+      cursor: pointer; color: var(--text-3); transition: all .1s;
+      &:last-child { border-right: none; }
+      &:hover:not(:disabled):not(.active) { background: var(--border-light); color: var(--text-2); }
+      &.active { font-weight: 700; }
+      &:disabled { opacity: .5; cursor: not-allowed; }
     }
 
-    .table-footer {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 8px 14px; border-top: 1px solid var(--border-light); background: var(--bg);
-    }
-    .tf-info { font-size: 12px; color: var(--text-3); }
+    /* States */
+    .loading-state { display: flex; align-items: center; gap: 12px; justify-content: center; padding: 60px; color: var(--text-3); font-size: 13px; }
+    .empty-state { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 60px; color: var(--text-3); font-size: 13px; }
   `],
 })
 export class AttendanceComponent implements OnInit {
-  private api    = inject(ApiService);
-  private snack  = inject(MatSnackBar);
-  private dialog = inject(MatDialog);
+  private api   = inject(ApiService);
+  private snack = inject(MatSnackBar);
+  private auth  = inject(AuthService);
 
+  roster        = signal<RosterStudent[]>([]);
+  classes       = signal<SchoolClass[]>([]);
   loading       = signal(true);
   marking       = signal(false);
-  summary       = signal<DailySummary | null>(null);
-  classes       = signal<SchoolClass[]>([]);
-  selectedDate  = signal(new Date());
-  selectedClass = signal('');
-  statusFilter  = signal('');
+  savingId      = signal<string | null>(null);
+  selectedClass = signal<string | null>(null);
+  selectedDate  = signal(new Date().toISOString().slice(0, 10));
+  searchTerm    = '';
+  statusFilter  = '';
 
-  filteredRecords = () => {
-    const records = this.summary()?.records ?? [];
-    const f = this.statusFilter();
-    if (!f) return records;
-    return records.filter(r => r.status === f);
-  };
+  isAdmin = () => ['owner', 'principal', 'accountant', 'admission_staff'].includes(this.auth.user()?.role ?? '');
+  isToday = () => this.selectedDate() === new Date().toISOString().slice(0, 10);
 
-  selectedDateStr = () => this.selectedDate().toISOString().slice(0, 10);
-  isTodaySelected = () => this.selectedDateStr() === new Date().toISOString().slice(0, 10);
+  markableStatuses = [
+    { key: 'present',  label: 'P', fullLabel: 'Present',  activeColor: '#10B981' },
+    { key: 'absent',   label: 'A', fullLabel: 'Absent',   activeColor: '#EF4444' },
+    { key: 'late',     label: 'L', fullLabel: 'Late',     activeColor: '#F59E0B' },
+    { key: 'half_day', label: 'H', fullLabel: 'Half Day', activeColor: '#3B82F6' },
+  ];
 
-  ngOnInit() { this.loadClasses(); this.loadSummary(); }
+  markedCount = computed(() => this.roster().filter(s => s.status !== 'not_marked').length);
+  markedPct   = computed(() => this.roster().length ? Math.round(this.markedCount() / this.roster().length * 100) : 0);
+
+  countByStatus(status: string) {
+    return this.roster().filter(s => s.status === status).length;
+  }
+
+  filteredRoster = computed(() => {
+    let list = this.roster();
+    if (this.statusFilter) list = list.filter(s => s.status === this.statusFilter);
+    if (this.searchTerm) {
+      const q = this.searchTerm.toLowerCase();
+      list = list.filter(s =>
+        (s.first_name + ' ' + s.last_name).toLowerCase().includes(q) ||
+        s.admission_no.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  });
+
+  ngOnInit() {
+    this.loadClasses();
+  }
 
   loadClasses() {
-    this.api.get<ApiResponse<SchoolClass[]>>('/students/classes').subscribe({
-      next: (res: any) => this.classes.set(res.data ?? []),
+    this.api.get<any>('/students/classes').subscribe({
+      next: (res: any) => {
+        this.classes.set(res.data ?? []);
+        // Auto-select teacher's class
+        if (!this.isAdmin() && res.data?.length) {
+          this.selectedClass.set(res.data[0].id);
+        }
+        this.loadRoster();
+      },
+      error: () => this.loadRoster(),
     });
   }
 
-  loadSummary() {
+  loadRoster() {
     this.loading.set(true);
-    const params: Record<string, unknown> = { date: this.selectedDateStr() };
-    if (this.selectedClass()) params['class_id'] = this.selectedClass();
-
-    this.api.get<{ data: DailySummary }>('/attendance/daily-summary', params).subscribe({
-      next: (res: any) => { this.summary.set(res.data); this.loading.set(false); },
+    const params: Record<string, string> = { date: this.selectedDate() };
+    if (this.selectedClass()) params['class_id'] = this.selectedClass()!;
+    this.api.get<any>('/attendance/roster', params).subscribe({
+      next: (res: any) => { this.roster.set(res.data ?? []); this.loading.set(false); },
       error: () => this.loading.set(false),
     });
   }
 
-  onDateChange(val: string) {
-    this.selectedDate.set(new Date(val + 'T00:00:00'));
-    this.loadSummary();
+  onClassChange(e: Event) {
+    const val = (e.target as HTMLSelectElement).value;
+    this.selectClass(val || null);
   }
 
-  changeDate(days: number) {
+  selectClass(id: string | null) {
+    this.selectedClass.set(id);
+    this.loadRoster();
+  }
+
+  onDateChange(e: Event) {
+    this.selectedDate.set((e.target as HTMLInputElement).value);
+    this.loadRoster();
+  }
+
+  changeDate(dir: number) {
     const d = new Date(this.selectedDate());
-    d.setDate(d.getDate() + days);
-    this.selectedDate.set(d);
-    this.loadSummary();
+    d.setDate(d.getDate() + dir);
+    this.selectedDate.set(d.toISOString().slice(0, 10));
+    this.loadRoster();
   }
 
-  goToToday() { this.selectedDate.set(new Date()); this.loadSummary(); }
+  mark(student: RosterStudent, status: string) {
+    if (this.savingId()) return;
+    // Optimistic update
+    const prev = student.status;
+    student.status = status as any;
+    this.savingId.set(student.id);
 
-  onClassChange(val: string)  { this.selectedClass.set(val);  this.loadSummary(); }
-  onStatusFilter(val: string) { this.statusFilter.set(val); }
-
-  getRate(s: DailySummary): number {
-    if (!s.total) return 0;
-    return Math.round((s.present + s.late) * 100 / s.total);
-  }
-
-  getAvatarColor(name: string): string {
-    const colors = ['#2563EB','#7C3AED','#DB2777','#D97706','#059669','#0891B2'];
-    return colors[(name.charCodeAt(0) || 0) % colors.length];
-  }
-
-  openCheckIn() {
-    const ref = this.dialog.open(CheckInDialogComponent, {
-      width: '500px', disableClose: true,
-    });
-    ref.afterClosed().subscribe((result: any) => {
-      if (result) {
-        this.snack.open('Attendance recorded successfully', 'OK', { duration: 3000 });
-        this.loadSummary();
-      }
+    this.api.post<any>('/attendance/quick-mark', {
+      student_id: student.id,
+      date: this.selectedDate(),
+      status,
+    }).subscribe({
+      next: () => this.savingId.set(null),
+      error: () => {
+        student.status = prev; // rollback
+        this.savingId.set(null);
+        this.snack.open('Failed to mark attendance', 'OK', { duration: 2500 });
+      },
     });
   }
+
   markAllPresent() {
-    const ref = this.dialog.open(MarkAllDialogComponent, {
-      width: '480px', disableClose: true,
-      data: { date: this.selectedDateStr(), classes: this.classes() },
+    if (this.marking()) return;
+    this.marking.set(true);
+    const params: Record<string, string> = { date: this.selectedDate() };
+    if (this.selectedClass()) params['class_id'] = this.selectedClass()!;
+
+    this.api.post<any>('/attendance/bulk-mark', {
+      class_id: this.selectedClass() ?? undefined,
+      date: this.selectedDate(),
+      status: 'present',
+    }).subscribe({
+      next: (res: any) => {
+        this.marking.set(false);
+        this.snack.open((res.data?.count ?? res.count ?? '') + ' students marked present', 'OK', { duration: 3000 });
+        this.loadRoster();
+      },
+      error: () => { this.marking.set(false); this.snack.open('Error', 'OK', { duration: 2500 }); },
     });
-    ref.afterClosed().subscribe((result: any) => {
-      if (result) {
-        this.snack.open(result.count + ' students marked present', 'OK', { duration: 3000 });
-        this.loadSummary();
-      }
-    });
+  }
+
+  getClassName(id: string): string {
+    return this.classes().find(c => c.id === id)?.name ?? '';
+  }
+
+  getColor(name: string): string {
+    const colors = ['#2563EB','#7C3AED','#DB2777','#D97706','#059669','#0891B2'];
+    return colors[(name?.charCodeAt(0) || 0) % colors.length];
   }
 }

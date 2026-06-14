@@ -53,12 +53,14 @@ const ROLE_CONFIG: Record<string, { label: string; color: string; bg: string }> 
   accountant:        { label: 'Accountant',          color: '#D97706', bg: '#FFFBEB' },
   driver:            { label: 'Driver',              color: '#6B7280', bg: '#F9FAFB' },
   support:           { label: 'Support',             color: '#9CA3AF', bg: '#F9FAFB' },
+  admission_staff:   { label: 'Admission Staff',     color: '#0891B2', bg: '#ECFEFF' },
 };
 
 @Component({
   selector: 'app-staff',
   standalone: true,
   imports: [
+    StaffProfileDialogComponent,
     MatIconModule, MatProgressSpinnerModule,
     MatTabsModule, MatMenuModule, MatDialogModule, FormsModule,
     DatePipe,
@@ -230,6 +232,8 @@ const ROLE_CONFIG: Record<string, { label: string; color: string; bg: string }> 
       </mat-tab>
 
     </mat-tab-group>
+    <!-- Staff profile slide panel -->
+    <app-staff-profile [staffId]="viewProfileId()" />
   `,
   styles: [`
     ::ng-deep .staff-page-tabs .mat-mdc-tab-body-wrapper { padding: 0; }
@@ -406,6 +410,7 @@ export class StaffComponent implements OnInit {
   payroll       = signal<any[]>([]);
 
   loading        = signal(true);
+  viewProfileId  = signal<string | null>(null);
   leaveLoading   = signal(false);
   payrollLoading = signal(false);
 
@@ -511,9 +516,8 @@ export class StaffComponent implements OnInit {
   }
 
   viewProfile(s: StaffMember) {
-    this.dialog.open(StaffProfileDialogComponent, {
-      width: '95vw', maxWidth: '520px', maxHeight: '90vh', data: s,
-    });
+    this.viewProfileId.set(null); // reset first to trigger OnChanges
+    setTimeout(() => this.viewProfileId.set(s.id), 0);
   }
 
   deactivate(s: StaffMember) {

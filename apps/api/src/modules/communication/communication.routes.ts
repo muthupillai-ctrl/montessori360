@@ -15,7 +15,7 @@ export const communicationRouter = Router();
 communicationRouter.use(authenticate);
 
 const BROADCAST_ROLES = ['owner', 'principal', 'teacher'];
-const ALL_ROLES       = ['owner', 'principal', 'teacher', 'assistant_teacher', 'accountant', 'parent'];
+const ALL_ROLES       = ['owner', 'principal', 'teacher', 'assistant_teacher', 'accountant', 'admission_staff', 'driver', 'support', 'parent'];
 
 // ── Announcements ─────────────────────────────────────────────────────────────
 communicationRouter.get(   '/announcements',              authorize(...ALL_ROLES),       validateAnnouncementFilters, listAnnouncements);

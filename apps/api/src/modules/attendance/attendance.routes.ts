@@ -7,6 +7,7 @@ import {
 import {
   checkIn, checkOut, bulkMark,
   getDailySummary, listAttendance, getMonthlyReport,
+  getRoster, quickMark,
 } from './attendance.controller.js';
 
 export const attendanceRouter = Router();
@@ -21,6 +22,8 @@ attendanceRouter.post('/check-out',      authorize(...MARK_ROLES), validateCheck
 attendanceRouter.post('/bulk-mark',      authorize(...MARK_ROLES), validateBulkMark,          bulkMark);
 
 // View attendance
+attendanceRouter.get('/roster',         authorize(...MARK_ROLES), getRoster);
+attendanceRouter.post('/quick-mark',     authorize(...MARK_ROLES), quickMark);
 attendanceRouter.get('/',                authorize(...VIEW_ROLES), validateAttendanceFilters, listAttendance);
 attendanceRouter.get('/daily-summary',   authorize(...VIEW_ROLES), validateAttendanceFilters, getDailySummary);
 attendanceRouter.get('/monthly-report',  authorize(...VIEW_ROLES), validateMonthlyReport,     getMonthlyReport);

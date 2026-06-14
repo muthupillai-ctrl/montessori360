@@ -29,7 +29,8 @@ export async function listStaff(req: Request, res: Response): Promise<void> {
 }
 
 export async function getStaffMember(req: Request, res: Response): Promise<void> {
-  const row = await staffService.getById(req.user!.tenantSchema, req.params.id);
+  const id = req.params.id === 'me' ? req.user!.sub : req.params.id;
+  const row = await staffService.getById(req.user!.tenantSchema, id);
   res.json({ data: row });
 }
 

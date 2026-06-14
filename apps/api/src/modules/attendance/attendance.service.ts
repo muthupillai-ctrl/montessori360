@@ -13,6 +13,47 @@ const CACHE_TTL = 120; // 2 minutes for attendance (changes frequently)
 class AttendanceService {
 
   // ── Check in ──────────────────────────────────────────────────────────────
+  async getRoster(schema: string, date: string, classId?: string, teacherId?: string): Promise<any[]> {
+    // If teacher, auto-find their assigned class
+    let resolvedClassId = classId;
+    if (!resolvedClassId && teacherId) {
+      const [cls] = await tenantQuery<any>(schema,
+        `SELECT id FROM ${schema}.classes WHERE teacher_id = $1 AND is_active = true LIMIT 1`,
+        [teacherId]
+      );
+      resolvedClassId = cls?.id;
+    }
+
+    const classFilter = resolvedClassId ? `AND s.class_id = '${resolvedClassId}'` : '';
+
+    return tenantQuery<any>(schema,
+      `SELECT
+         s.id, s.admission_no, s.first_name, s.last_name, s.class_id,
+         c.name AS class_name,
+         a.id   AS attendance_id,
+         COALESCE(a.status, 'not_marked') AS status,
+         a.notes
+       FROM   ${schema}.students s
+       LEFT JOIN ${schema}.classes c ON c.id = s.class_id
+       LEFT JOIN ${schema}.attendance a ON a.student_id = s.id AND a.date = $1
+       WHERE  s.is_active = true ${classFilter}
+       ORDER  BY s.first_name, s.last_name`,
+      [date]
+    );
+  }
+
+  async quickMark(schema: string, studentId: string, date: string, status: string, markedBy: string): Promise<any> {
+    const [row] = await tenantQuery<any>(schema,
+      `INSERT INTO ${schema}.attendance (student_id, date, status, marked_by)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (student_id, date)
+       DO UPDATE SET status = $3, marked_by = $4, updated_at = now()
+       RETURNING *`,
+      [studentId, date, status, markedBy]
+    );
+    return row;
+  }
+
   async checkIn(schema: string, dto: CheckInDto, markedBy: string): Promise<AttendanceRow> {
     const date = (dto as any).date ?? new Date().toISOString().slice(0, 10);
 
@@ -44,8 +85,7 @@ class AttendanceService {
       if (existing) {
         const { rows } = await client.query(
           `UPDATE ${schema}.attendance
-             SET check_in_time = $1, status = $2, mode = $3, marked_by = $4,
-                 notes = $5
+             SET check_in_time = $1, status = $2, mode = $3, marked_by = $4, notes = $5
            WHERE id = $6 RETURNING *`,
           [checkInTime, status, dto.mode ?? 'manual', markedBy, dto.notes ?? null, existing.id]
         );
