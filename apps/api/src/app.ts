@@ -1,4 +1,4 @@
-import express, { Application, Request, Response, NextFunction } from 'express';
+import express, { Application, Request, Response } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import compression from 'compression';
@@ -27,6 +27,9 @@ import { platformAdminRouter } from './modules/platform-admin/platform-admin.rou
 
 export function createApp(): Application {
   const app = express();
+
+  // Trust one proxy hop (Nginx / AWS ALB in front of this server)
+  app.set('trust proxy', 1);
 
   // ── Security ──────────────────────────────────────────────────────────────
   app.use(helmet());
