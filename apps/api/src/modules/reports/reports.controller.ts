@@ -12,7 +12,7 @@ export async function listTemplates(req: Request, res: Response): Promise<void> 
 }
 
 export async function getTemplate(req: Request, res: Response): Promise<void> {
-  const row = await templateService.getById(req.user!.tenantSchema, req.params.id);
+  const row = await templateService.getById(req.user!.tenantSchema, String(req.params.id));
   res.json({ data: row });
 }
 
@@ -25,25 +25,25 @@ export async function createTemplate(req: Request, res: Response): Promise<void>
 
 export async function updateTemplate(req: Request, res: Response): Promise<void> {
   const row = await templateService.update(
-    req.user!.tenantSchema, req.params.id, req.body as UpdateTemplateDto, req.user!.sub
+    req.user!.tenantSchema, String(req.params.id), req.body as UpdateTemplateDto, req.user!.sub
   );
   res.json({ data: row, message: 'Template updated successfully' });
 }
 
 export async function deleteTemplate(req: Request, res: Response): Promise<void> {
-  await templateService.deactivate(req.user!.tenantSchema, req.params.id);
+  await templateService.deactivate(req.user!.tenantSchema, String(req.params.id));
   res.json({ message: 'Template deleted successfully' });
 }
 
 export async function assignTemplateToClass(req: Request, res: Response): Promise<void> {
   const { classId } = req.params;
   const { template_id } = req.body as { template_id: string };
-  await templateService.assignToClass(req.user!.tenantSchema, classId, template_id);
+  await templateService.assignToClass(req.user!.tenantSchema, String(classId), template_id);
   res.json({ message: 'Template assigned to class successfully' });
 }
 
 export async function unassignTemplateFromClass(req: Request, res: Response): Promise<void> {
-  await templateService.unassignFromClass(req.user!.tenantSchema, req.params.classId);
+  await templateService.unassignFromClass(req.user!.tenantSchema, String(req.params.classId));
   res.json({ message: 'Class reverted to school default template' });
 }
 
@@ -60,7 +60,7 @@ export async function getProgressCard(req: Request, res: Response): Promise<void
   if (!studentId) throw AppError.badRequest('studentId is required');
 
   const stream = await generateProgressCard(
-    req.user!.tenantSchema, studentId, term, from, to
+    req.user!.tenantSchema, String(studentId), term, from, to
   );
 
   const filename = `progress-card-${studentId}-${term.replace(/\s+/g, '-')}.pdf`;

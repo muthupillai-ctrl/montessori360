@@ -113,7 +113,7 @@ export async function createClass(req: Request, res: Response): Promise<void> {
 export async function updateClass(req: Request, res: Response): Promise<void> {
   try {
     const { classId } = req.params;
-    const row = await studentsService.updateClass(req.user!.tenantSchema, classId, req.body);
+    const row = await studentsService.updateClass(req.user!.tenantSchema,String( classId), req.body);
     res.json({ data: row, message: 'Class updated successfully' });
   } catch (err: any) {
     res.status(400).json({ error: { code: 'BAD_REQUEST', message: err.message } });

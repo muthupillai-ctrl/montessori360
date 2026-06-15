@@ -79,9 +79,12 @@ class AuthService {
       email: user.email,
     };
 
-    const accessToken = jwt.sign(payload, process.env.JWT_ACCESS_SECRET!, {
-      expiresIn: process.env.JWT_ACCESS_EXPIRY ?? '15m',
-    });
+  const accessToken = jwt.sign( payload,
+  process.env.JWT_ACCESS_SECRET as string,
+  {
+    expiresIn: '15m',
+  }
+);
 
     const refreshToken = uuidv4();
     // Store refresh token keyed by the token itself for O(1) lookup

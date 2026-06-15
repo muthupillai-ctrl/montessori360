@@ -82,6 +82,7 @@ export interface CreateFeeStructureDto {
 export interface CreateInvoiceDto {
   student_id:        string;
   fee_structure_id?: string;
+  invoice_type?:     'fee_structure' | 'transport' | 'adhoc';
   billing_period:    string;
   line_items:        LineItem[];
   discount?:         number;

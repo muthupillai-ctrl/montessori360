@@ -60,7 +60,7 @@ export async function bulkRecordObservations(req: Request, res: Response): Promi
 
 export async function getStudentProgress(req: Request, res: Response): Promise<void> {
   const summary = await observationsService.getStudentProgress(
-    req.user!.tenantSchema, req.params.studentId
+    req.user!.tenantSchema, String(req.params.studentId)
   );
   res.json({ data: summary });
 }

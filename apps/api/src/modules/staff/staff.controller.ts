@@ -30,7 +30,7 @@ export async function listStaff(req: Request, res: Response): Promise<void> {
 
 export async function getStaffMember(req: Request, res: Response): Promise<void> {
   const id = req.params.id === 'me' ? req.user!.sub : req.params.id;
-  const row = await staffService.getById(req.user!.tenantSchema, id);
+  const row = await staffService.getById(req.user!.tenantSchema, String(id));
   res.json({ data: row });
 }
 
@@ -50,7 +50,7 @@ export async function updateStaffMember(req: Request, res: Response): Promise<vo
     res.status(e.statusCode ?? 403).json({ error: { code: 'FORBIDDEN', message: e.message } }); return;
   }
   const row = await staffService.update(
-    req.user!.tenantSchema, req.params.id, req.body as UpdateStaffDto, req.user!.sub
+    req.user!.tenantSchema, String(req.params.id), req.body as UpdateStaffDto, req.user!.sub
   );
   res.json({ data: row, message: 'Staff member updated successfully' });
 }
@@ -60,7 +60,7 @@ export async function deactivateStaffMember(req: Request, res: Response): Promis
   try { checkCanManage(req.user!.role, target.role); } catch (e: any) {
     res.status(e.statusCode ?? 403).json({ error: { code: 'FORBIDDEN', message: e.message } }); return;
   }
-  await staffService.deactivate(req.user!.tenantSchema, req.params.id);
+  await staffService.deactivate(req.user!.tenantSchema, String(req.params.id));
   res.json({ message: 'Staff member deactivated successfully' });
 }
 
@@ -68,7 +68,7 @@ export async function deactivateStaffMember(req: Request, res: Response): Promis
 
 export async function getLeaveBalance(req: Request, res: Response): Promise<void> {
   const staffId = req.params.staffId ?? req.user!.sub;
-  const row = await staffService.getLeaveBalance(req.user!.tenantSchema, staffId, req.query.year as string);
+  const row = await staffService.getLeaveBalance(req.user!.tenantSchema, String(staffId), req.query.year as string);
   res.json({ data: row });
 }
 
@@ -94,13 +94,13 @@ export async function requestLeave(req: Request, res: Response): Promise<void> {
 
 export async function reviewLeave(req: Request, res: Response): Promise<void> {
   const row = await staffService.reviewLeave(
-    req.user!.tenantSchema, req.params.id, req.body as ReviewLeaveDto, req.user!.sub
+    req.user!.tenantSchema, String(req.params.id), req.body as ReviewLeaveDto, req.user!.sub
   );
   res.json({ data: row, message: `Leave request ${row.status}` });
 }
 
 export async function cancelLeave(req: Request, res: Response): Promise<void> {
-  await staffService.cancelLeave(req.user!.tenantSchema, req.params.id, req.user!.sub);
+  await staffService.cancelLeave(req.user!.tenantSchema, String(req.params.id), req.user!.sub);
   res.json({ message: 'Leave request cancelled' });
 }
 
@@ -120,7 +120,7 @@ export async function createShift(req: Request, res: Response): Promise<void> {
 }
 
 export async function deleteShift(req: Request, res: Response): Promise<void> {
-  await staffService.deleteShift(req.user!.tenantSchema, req.params.id);
+  await staffService.deleteShift(req.user!.tenantSchema, String(req.params.id));
   res.json({ message: 'Shift deleted successfully' });
 }
 

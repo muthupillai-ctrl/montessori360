@@ -106,7 +106,7 @@ class CommunicationService {
   }
 
   async deleteAnnouncement(schema: string, id: string): Promise<void> {
-    const { rows } = await tenantQuery(
+    const rows = await tenantQuery(
       schema,
       `DELETE FROM ${schema}.announcements WHERE id = $1 RETURNING id`,
       [id]

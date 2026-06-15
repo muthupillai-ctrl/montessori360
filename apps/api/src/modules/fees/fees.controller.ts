@@ -13,7 +13,7 @@ export async function listFeeStructures(req: Request, res: Response): Promise<vo
 }
 
 export async function getFeeStructure(req: Request, res: Response): Promise<void> {
-  const row = await feesService.getFeeStructure(req.user!.tenantSchema, req.params.id);
+  const row = await feesService.getFeeStructure(req.user!.tenantSchema, String(req.params.id));
   res.json({ data: row });
 }
 
@@ -26,7 +26,7 @@ export async function createFeeStructure(req: Request, res: Response): Promise<v
 
 export async function updateFeeStructure(req: Request, res: Response): Promise<void> {
   const row = await feesService.updateFeeStructure(
-    req.user!.tenantSchema, req.params.id, req.body, req.user!.sub
+    req.user!.tenantSchema, String(req.params.id), req.body, req.user!.sub
   );
   res.json({ data: row, message: 'Fee structure updated successfully' });
 }
@@ -53,7 +53,7 @@ export async function listInvoices(req: Request, res: Response): Promise<void> {
 }
 
 export async function getInvoice(req: Request, res: Response): Promise<void> {
-  const invoice = await feesService.getInvoice(req.user!.tenantSchema, req.params.id);
+  const invoice = await feesService.getInvoice(req.user!.tenantSchema, String(req.params.id));
   res.json({ data: invoice });
 }
 
@@ -80,14 +80,14 @@ export async function bulkCreateInvoices(req: Request, res: Response): Promise<v
 
 export async function recordPayment(req: Request, res: Response): Promise<void> {
   const invoice = await feesService.recordPayment(
-    req.user!.tenantSchema, req.params.id, req.body as RecordPaymentDto, req.user!.sub
+    req.user!.tenantSchema, String(req.params.id), req.body as RecordPaymentDto, req.user!.sub
   );
   res.json({ data: invoice, message: 'Payment recorded successfully' });
 }
 
 export async function waiveInvoice(req: Request, res: Response): Promise<void> {
   const invoice = await feesService.waiveInvoice(
-    req.user!.tenantSchema, req.params.id, req.body as WaiveInvoiceDto, req.user!.sub
+    req.user!.tenantSchema, String(req.params.id), req.body as WaiveInvoiceDto, req.user!.sub
   );
   res.json({ data: invoice, message: 'Invoice waived successfully' });
 }
@@ -119,7 +119,7 @@ export async function getCollectionSummary(req: Request, res: Response): Promise
 
 export async function deleteInvoice(req: Request, res: Response): Promise<void> {
   try {
-    await feesService.deleteInvoice(req.user!.tenantSchema, req.params['id'] as string);
+    await feesService.deleteInvoice(req.user!.tenantSchema, String(req.params['id']));
     res.json({ message: 'Invoice deleted successfully' });
   } catch (err: any) {
     res.status(400).json({ error: { code: 'BAD_REQUEST', message: err.message } });

@@ -21,7 +21,7 @@ export async function listAnnouncements(req: Request, res: Response): Promise<vo
 }
 
 export async function getAnnouncement(req: Request, res: Response): Promise<void> {
-  const row = await communicationService.getAnnouncement(req.user!.tenantSchema, req.params.id);
+  const row = await communicationService.getAnnouncement(req.user!.tenantSchema, String(req.params.id));
   res.json({ data: row });
 }
 
@@ -33,12 +33,12 @@ export async function createAnnouncement(req: Request, res: Response): Promise<v
 }
 
 export async function publishAnnouncement(req: Request, res: Response): Promise<void> {
-  const row = await communicationService.publishAnnouncement(req.user!.tenantSchema, req.params.id);
+  const row = await communicationService.publishAnnouncement(req.user!.tenantSchema, String(req.params.id));
   res.json({ data: row, message: 'Announcement published successfully' });
 }
 
 export async function deleteAnnouncement(req: Request, res: Response): Promise<void> {
-  await communicationService.deleteAnnouncement(req.user!.tenantSchema, req.params.id);
+  await communicationService.deleteAnnouncement(req.user!.tenantSchema, String(req.params.id));
   res.json({ message: 'Announcement deleted successfully' });
 }
 
@@ -71,7 +71,7 @@ export async function acknowledgeCircular(req: Request, res: Response): Promise<
   }
   const userType = role === 'parent' ? 'parent' : 'staff';
   await communicationService.acknowledgeCircular(
-    req.user!.tenantSchema, req.params.id, req.user!.sub, userType
+    req.user!.tenantSchema, String(req.params.id), req.user!.sub, userType
   );
   res.json({ message: 'Circular acknowledged successfully' });
 }
@@ -94,7 +94,7 @@ export async function getConversation(req: Request, res: Response): Promise<void
   const result = await communicationService.getConversation(
     req.user!.tenantSchema,
     req.user!.sub, userType,
-    req.params.partnerId, partnerType,
+    String(req.params.partnerId), partnerType,
     filters
   );
   res.json(result);
@@ -115,7 +115,7 @@ export async function getUnreadCount(req: Request, res: Response): Promise<void>
 
 export async function markAllRead(req: Request, res: Response): Promise<void> {
   await communicationService.markAllRead(
-    req.user!.tenantSchema, req.user!.sub, req.params.partnerId
+    req.user!.tenantSchema, req.user!.sub, String(req.params.partnerId)
   );
   res.json({ message: 'Messages marked as read' });
 }
