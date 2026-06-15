@@ -2,6 +2,7 @@
   "name": "@montessori360/api",
   "version": "1.0.0",
   "description": "Montessori360 REST API — Express 5 + Node.js 22",
+  "type": "module",
   "main": "dist/index.js",
   "scripts": {
     "dev": "nodemon --exec node --import tsx src/index.ts",

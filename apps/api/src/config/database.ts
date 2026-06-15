@@ -1,4 +1,4 @@
-const fs = require('fs');
+import fs from 'fs';
 import { Pool, PoolClient } from 'pg';
 import { logger } from '../utils/logger.js';
 
@@ -28,6 +28,10 @@ export async function connectDatabase(): Promise<void> {
         else
           console.log("CERT FIE "+dbpath);
 
+if (!process.env.DB_CERT_PATH) {
+  throw new Error('DB_CERT_PATH is not configured');
+}
+
 pool = new Pool({
   host: process.env.DB_HOST,
   port: Number(process.env.DB_PORT),
@@ -36,12 +40,9 @@ pool = new Pool({
   password: process.env.DB_PASSWORD,
   ssl: {
     rejectUnauthorized: false,
-  ca: fs.readFileSync(process.env.DB_CERT_PATH).toString(),  },
+    ca: fs.readFileSync(process.env.DB_CERT_PATH).toString(),
+  },
 });
-
-if (!process.env.DB_CERT_PATH) {
-  throw new Error('DB_CERT_PATH is not configured');
-}
 
   //pool = new Pool({
    // connectionString: process.env.DATABASE_URL,
