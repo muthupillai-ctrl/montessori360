@@ -21,6 +21,13 @@ export async function connectDatabase(): Promise<void> {
     : {};
 
         ////////////////BEGIN
+        const dbpath   = process.env.DB_CERT_PATH?.toString();
+        if (!dbpath) {
+          throw new Error('DB_CERT_PATH is not configured');
+        }
+        else
+          console.log("CERT FIE "+dbpath);
+
 pool = new Pool({
   host: process.env.DB_HOST,
   port: Number(process.env.DB_PORT),
@@ -31,6 +38,11 @@ pool = new Pool({
     rejectUnauthorized: false,
   ca: fs.readFileSync(process.env.DB_CERT_PATH).toString(),  },
 });
+
+if (!process.env.DB_CERT_PATH) {
+  throw new Error('DB_CERT_PATH is not configured');
+}
+
   //pool = new Pool({
    // connectionString: process.env.DATABASE_URL,
    // min: parseInt(process.env.DATABASE_POOL_MIN ?? '2', 10),
