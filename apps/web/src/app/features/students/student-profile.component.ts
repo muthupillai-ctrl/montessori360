@@ -153,6 +153,11 @@ import type { ParentRecord } from './parent-form-dialog.component';
                       </div>
                       @if (isAdmin()) {
                         <div class="pc-actions">
+                          @if (p.email) {
+                            <button class="pc-btn invite" (click)="inviteToPortal(p)" title="Invite to parent portal">
+                              <mat-icon style="font-size:14px;width:14px;height:14px">mail</mat-icon>
+                            </button>
+                          }
                           <button class="pc-btn" (click)="openParentForm(p)">
                             <mat-icon style="font-size:14px;width:14px;height:14px">edit</mat-icon>
                           </button>
@@ -309,6 +314,29 @@ import type { ParentRecord } from './parent-form-dialog.component';
         </div>
       }
     </div>
+
+    <!-- Invite link dialog -->
+    @if (inviteLink()) {
+      <div class="invite-overlay" (click)="inviteLink.set(null)">
+        <div class="invite-dialog" (click)="$event.stopPropagation()">
+          <div class="invite-icon">
+            <mat-icon style="font-size:28px;width:28px;height:28px;color:#059669">check_circle</mat-icon>
+          </div>
+          <div class="invite-title">Invite link generated</div>
+          <div class="invite-sub">Share this link with <strong>{{ inviteParentName() }}</strong>. It expires in 72 hours.</div>
+          <div class="invite-link-box">
+            <span class="invite-link-text">{{ inviteLink() }}</span>
+          </div>
+          <div class="invite-actions">
+            <button class="invite-btn copy" (click)="copyInviteLink()">
+              <mat-icon style="font-size:16px;width:16px;height:16px">content_copy</mat-icon>
+              Copy Link
+            </button>
+            <button class="invite-btn close" (click)="inviteLink.set(null)">Done</button>
+          </div>
+        </div>
+      </div>
+    }
   `,
   styles: [`
     .backdrop {
@@ -403,7 +431,7 @@ import type { ParentRecord } from './parent-form-dialog.component';
     .pc-relation { font-size: 11px; color: var(--text-3); text-transform: capitalize; margin-top: 2px; }
     .pickup-tag { font-size: 9px; font-weight: 600; padding: 1px 6px; border-radius: 10px; background: var(--green-light); color: #065F46; }
     .pc-actions { display: flex; gap: 4px; }
-    .pc-btn { width: 26px; height: 26px; border-radius: 5px; border: none; cursor: pointer; background: var(--border-light); color: var(--text-3); display: flex; align-items: center; justify-content: center; &:hover { background: var(--blue-light); color: var(--blue); } &.danger:hover { background: var(--red-light); color: var(--red); } }
+    .pc-btn { width: 26px; height: 26px; border-radius: 5px; border: none; cursor: pointer; background: var(--border-light); color: var(--text-3); display: flex; align-items: center; justify-content: center; &:hover { background: var(--blue-light); color: var(--blue); } &.danger:hover { background: var(--red-light); color: var(--red); } &.invite:hover { background: var(--green-light); color: #065F46; } }
     .pc-details { padding: 8px 12px; display: flex; flex-direction: column; gap: 5px; }
     .pc-row { display: flex; align-items: center; gap: 7px; }
     .pc-icon { font-size: 14px; width: 14px; height: 14px; color: var(--text-3); flex-shrink: 0; }
@@ -457,6 +485,34 @@ import type { ParentRecord } from './parent-form-dialog.component';
     .class-chip {
       background: var(--purple-light); color: var(--purple);
       font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 4px;
+    }
+
+    /* Invite link dialog */
+    .invite-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.4);
+      z-index: 1000; display: flex; align-items: center; justify-content: center;
+    }
+    .invite-dialog {
+      background: #fff; border-radius: 16px; padding: 28px 24px;
+      width: 420px; max-width: 90vw; box-shadow: 0 20px 60px rgba(0,0,0,.2);
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+    }
+    .invite-icon { margin-bottom: 4px; }
+    .invite-title { font-size: 17px; font-weight: 700; color: var(--text); }
+    .invite-sub { font-size: 13px; color: var(--text-3); text-align: center; line-height: 1.5; }
+    .invite-link-box {
+      width: 100%; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 12px; margin-top: 6px;
+      word-break: break-all;
+    }
+    .invite-link-text { font-size: 11px; color: var(--text-2); font-family: monospace; }
+    .invite-actions { display: flex; gap: 10px; margin-top: 8px; width: 100%; }
+    .invite-btn {
+      flex: 1; padding: 10px; border-radius: 8px; border: none;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      &.copy { background: #059669; color: #fff; }
+      &.close { background: var(--bg); color: var(--text-2); border: 1px solid var(--border); }
     }
   `],
 })
@@ -548,6 +604,35 @@ export class StudentProfileComponent implements OnChanges {
       },
       error: (err: any) => this.snack.open(err.error?.error?.message ?? 'Error', 'OK', { duration: 3000 }),
     });
+  }
+
+  inviteLink = signal<string | null>(null);
+  inviteParentName = signal('');
+
+  inviteToPortal(p: ParentRecord) {
+    this.api.post<any>(`/students/${p.student_id}/parents/invite`, {
+      email:      p.email,
+      first_name: p.first_name,
+      last_name:  p.last_name,
+      phone:      p.mobile ?? '',
+      relation:   p.relation,
+    }).subscribe({
+      next: (res: any) => {
+        const token = res.data?.inviteToken;
+        const link  = `${window.location.origin}/parent/set-password?token=${token}`;
+        this.inviteLink.set(link);
+        this.inviteParentName.set(`${p.first_name} ${p.last_name}`);
+      },
+      error: (err: any) => this.snack.open(err.error?.error?.message ?? 'Invite failed', 'OK', { duration: 3000 }),
+    });
+  }
+
+  copyInviteLink() {
+    const link = this.inviteLink();
+    if (!link) return;
+    navigator.clipboard.writeText(link).then(() =>
+      this.snack.open('Link copied to clipboard!', 'OK', { duration: 2000 })
+    );
   }
 
   getColor(name: string): string {

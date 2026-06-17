@@ -24,6 +24,8 @@ import { timetableRouter } from './modules/timetable/timetable.routes.js';
 import { analyticsRouter } from './modules/analytics/analytics.routes.js';
 import { promotionRouter } from './modules/promotion/promotion.routes.js';
 import { platformAdminRouter } from './modules/platform-admin/platform-admin.routes.js';
+import { parentRouter } from './modules/parent/parent.routes.js';
+import { homeworkRouter } from './modules/parent/homework.routes.js';
 
 export function createApp(): Application {
   const app = express();
@@ -85,6 +87,8 @@ export function createApp(): Application {
   v1.use('/timetable',  timetableRouter);
   v1.use('/analytics', analyticsRouter);
   v1.use('/promotion', promotionRouter);
+  v1.use('/parent',   parentRouter);
+  v1.use('/homework', homeworkRouter);
 
   app.use('/api/v1', v1);
 

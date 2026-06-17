@@ -47,7 +47,7 @@ class AttendanceService {
       `INSERT INTO ${schema}.attendance (student_id, date, status, marked_by)
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (student_id, date)
-       DO UPDATE SET status = $3, marked_by = $4, updated_at = now()
+       DO UPDATE SET status = $3, marked_by = $4
        RETURNING *`,
       [studentId, date, status, markedBy]
     );

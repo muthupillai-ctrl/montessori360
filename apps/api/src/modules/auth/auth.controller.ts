@@ -44,3 +44,9 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
   await authService.resetPassword(token, newPassword);
   res.json({ message: 'Password reset successfully' });
 }
+
+export async function setParentPassword(req: Request, res: Response): Promise<void> {
+  const { token, newPassword } = req.body as { token: string; newPassword: string };
+  await authService.setPasswordFromInvite(token, newPassword);
+  res.json({ message: 'Password set. You can now log in.' });
+}

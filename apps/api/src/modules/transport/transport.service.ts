@@ -319,11 +319,12 @@ class TransportService {
 
   async listTrips(schema: string, filters: any): Promise<any[]> {
     const conditions: string[] = ['1=1']; const params: any[] = []; let i = 1;
-    if (filters.date)      { conditions.push(`t.trip_date = $${i++}`);                                    params.push(filters.date); }
+    if (filters.date)      { conditions.push(`(t.trip_date = $${i++} OR t.status = 'in_progress')`);     params.push(filters.date); }
     if (filters.route_id)  { conditions.push(`t.route_id = $${i++}`);                                    params.push(filters.route_id); }
     if (filters.driver_id) { conditions.push(`COALESCE(t.driver_id, r.driver_id) = $${i++}`);           params.push(filters.driver_id); }
     return tenantQuery(schema,
-      `SELECT t.*, r.name AS route_name,
+      `SELECT t.*, to_char(t.trip_date, 'YYYY-MM-DD') AS trip_date,
+              r.name AS route_name,
               COALESCE(tv.registration_no, rv.registration_no) AS vehicle_reg,
               CONCAT(td.first_name,' ',td.last_name) AS driver_name,
               COUNT(tb.id)::int AS total_students,

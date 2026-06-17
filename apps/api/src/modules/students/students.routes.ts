@@ -9,7 +9,7 @@ import {
   listStudents, getStudent, createStudent, updateStudent, deactivateStudent,
   assignClass, getSiblings, linkSiblings, unlinkSiblings,
   promoteStudents, listClasses, createClass, updateClass, deleteClass,
-  listParents, createParent, updateParent, deleteParent,
+  listParents, createParent, updateParent, deleteParent, inviteParentToPortal,
 } from './students.controller.js';
 
 export const studentsRouter = Router();
@@ -39,6 +39,13 @@ studentsRouter.patch('/:id/class', authorize(...MANAGE_ROLES), validateStudentId
 studentsRouter.get('/:id/siblings',    authorize(...VIEW_ROLES),   validateStudentId,    getSiblings);
 studentsRouter.post('/siblings/link',  authorize(...MANAGE_ROLES), validateLinkSiblings, linkSiblings);
 studentsRouter.post('/siblings/unlink',authorize(...MANAGE_ROLES), validateLinkSiblings, unlinkSiblings);
+
+// ── Parents ───────────────────────────────────────────────────────────────────
+studentsRouter.get(   '/:studentId/parents',                  authorize(...VIEW_ROLES),   listParents);
+studentsRouter.post(  '/:studentId/parents',                  authorize(...MANAGE_ROLES), createParent);
+studentsRouter.put(   '/:studentId/parents/:parentId',        authorize(...MANAGE_ROLES), updateParent);
+studentsRouter.delete('/:studentId/parents/:parentId',        authorize(...MANAGE_ROLES), deleteParent);
+studentsRouter.post(  '/:studentId/parents/invite',           authorize(...MANAGE_ROLES), inviteParentToPortal);
 
 // ── Year-end promotion ────────────────────────────────────────────────────────
 studentsRouter.post('/promote', authorize(...ADMIN_ROLES), promoteStudents);

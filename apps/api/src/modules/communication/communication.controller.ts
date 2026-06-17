@@ -123,7 +123,17 @@ export async function markAllRead(req: Request, res: Response): Promise<void> {
 export async function listContacts(req: Request, res: Response): Promise<void> {
   const schema = req.user!.tenantSchema;
   const userId = req.user!.sub;
-
-  const staff = await communicationService.listStaffContacts(schema, userId);
+  const role   = req.user!.role;
+  const staff  = await communicationService.listStaffContacts(schema, userId);
   res.json({ data: staff });
+}
+
+// Returns parent_accounts (portal users) for a specific student — used by staff to message parents
+export async function listStudentParentAccounts(req: Request, res: Response): Promise<void> {
+  const schema    = req.user!.tenantSchema;
+  const studentId = String(req.params.studentId);
+  console.log('[listStudentParentAccounts] schema=%s studentId=%s', schema, studentId);
+  const rows      = await communicationService.listParentAccountsByStudent(schema, studentId);
+  console.log('[listStudentParentAccounts] found %d rows: %j', rows.length, rows);
+  res.json({ data: rows });
 }

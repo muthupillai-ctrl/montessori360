@@ -470,12 +470,64 @@ const VEHICLE_TYPES = [
 
         @if (tripLoading()) {
           <div class="loading-state"><mat-progress-spinner diameter="24" mode="indeterminate"/></div>
-        } @else if (!trips().length) {
+        } @else {
+
+          @if (liveStaleTrips().length) {
+            <div class="stale-live-banner">
+              <mat-icon style="font-size:16px;width:16px;height:16px">warning</mat-icon>
+              {{ liveStaleTrips().length }} trip{{ liveStaleTrips().length > 1 ? 's' : '' }} still live from a previous date
+            </div>
+            <div class="trips-table-wrap" style="margin-bottom:16px">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Date</th><th>Route</th><th>Type</th><th>Vehicle</th>
+                    <th>Driver</th><th>Boarded</th><th>Status</th><th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (t of liveStaleTrips(); track t.id) {
+                    <tr class="tr stale-live-row">
+                      <td>{{ t.trip_date | date:'d MMM' }}</td>
+                      <td class="fw">{{ t.route_name }}</td>
+                      <td>
+                        <span class="type-tag" [class.pickup]="t.trip_type==='morning'" [class.dropoff]="t.trip_type==='evening'">
+                          {{ t.trip_type === 'morning' ? '🏫 Pickup' :
+                             t.trip_type === 'evening' ? '🏠 Drop' : '⭐ Special' }}
+                        </span>
+                      </td>
+                      <td>{{ t.vehicle_reg ?? '—' }}</td>
+                      <td>{{ t.driver_name ?? '—' }}</td>
+                      <td>
+                        <div class="board-inline">
+                          <div class="board-bar sm">
+                            <div class="board-fill"
+                                 [style.width.%]="t.total_students > 0 ? (t.boarded_count/t.total_students*100) : 0">
+                            </div>
+                          </div>
+                          {{ t.boarded_count }}/{{ t.total_students }}
+                        </div>
+                      </td>
+                      <td><span class="status-pill active">live</span></td>
+                      <td>
+                        <button class="btn-sm" (click)="openTripDetail(t)">
+                          <mat-icon style="font-size:13px;width:13px;height:13px">open_in_new</mat-icon>
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+
+          @if (!dateTrips().length) {
           <div class="empty-state">
             <mat-icon style="font-size:36px;width:36px;height:36px;color:var(--text-4)">directions_bus</mat-icon>
             <div>No trips on {{ tripDate() | date:'d MMM yyyy' }}</div>
           </div>
-        } @else {
+          } @else {
           <div class="trips-table-wrap">
             <table class="data-table">
               <thead>
@@ -485,7 +537,7 @@ const VEHICLE_TYPES = [
                 </tr>
               </thead>
               <tbody>
-                @for (t of trips(); track t.id) {
+                @for (t of dateTrips(); track t.id) {
                   <tr class="tr">
                     <td class="fw">{{ t.route_name }}</td>
                     <td>
@@ -524,6 +576,8 @@ const VEHICLE_TYPES = [
               </tbody>
             </table>
           </div>
+          }
+
         }
 
       }
@@ -1151,6 +1205,8 @@ const VEHICLE_TYPES = [
 
     /* Table */
     .data-table-wrap, .trips-table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .stale-live-banner { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--red-light); color: var(--red); border-radius: 8px; font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+    .stale-live-row { background: color-mix(in srgb, var(--red-light) 30%, transparent); }
     .data-table { width: 100%; border-collapse: collapse; }
     .data-table thead th { padding: 9px 14px; text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; color: var(--text-4); background: var(--bg); border-bottom: 1px solid var(--border); }
     .data-table .tr { border-bottom: 1px solid var(--border-light); &:last-child { border-bottom: none; } &:hover { background: var(--bg); } }
@@ -1391,6 +1447,11 @@ export class TransportComponent implements OnInit {
   // Search / filters
   vehicleSearch = '';
   tripDate      = signal(new Date().toISOString().slice(0, 10));
+
+  // Trips for the selected date
+  dateTrips     = computed(() => this.trips().filter(t => String(t.trip_date).slice(0, 10) === this.tripDate()));
+  // Live trips stuck from a previous date
+  liveStaleTrips = computed(() => this.trips().filter(t => t.status === 'in_progress' && String(t.trip_date).slice(0, 10) !== this.tripDate()));
 
   vehicleTypes = VEHICLE_TYPES;
   isAdmin       = () => ['owner', 'principal'].includes(this.auth.user()?.role ?? '');

@@ -216,7 +216,7 @@ class CommunicationService {
   }
 
   async listStaffContacts(schema: string, excludeUserId: string): Promise<any[]> {
-    const staff = await tenantQuery<any>(
+    return tenantQuery<any>(
       schema,
       `SELECT id,
               TRIM(CONCAT(first_name, ' ', last_name)) AS name,
@@ -228,7 +228,59 @@ class CommunicationService {
        ORDER  BY first_name`,
       [excludeUserId]
     );
-    return staff;
+  }
+
+  async listParentAccountsByStudent(schema: string, studentId: string): Promise<any[]> {
+    // Three paths to find portal accounts for a student — union them to catch any data shape
+    return tenantQuery<any>(
+      schema,
+      `SELECT id, name, relation, type FROM (
+
+         -- Path 1: parent_accounts.student_ids array contains this student's UUID
+         SELECT pa.id,
+                TRIM(CONCAT(pa.first_name, ' ', pa.last_name)) AS name,
+                pa.relation,
+                'parent'::text AS type
+         FROM   ${schema}.parent_accounts pa
+         WHERE  pa.is_active = true
+           AND  $1::uuid = ANY(pa.student_ids)
+
+         UNION
+
+         -- Path 2: case-insensitive email join via student_parents
+         SELECT pa.id,
+                TRIM(CONCAT(pa.first_name, ' ', pa.last_name)) AS name,
+                COALESCE(sp.relation, pa.relation) AS relation,
+                'parent'::text AS type
+         FROM   ${schema}.student_parents sp
+         JOIN   ${schema}.parent_accounts pa ON LOWER(sp.email) = pa.email
+         WHERE  sp.student_id = $1::uuid
+           AND  sp.email IS NOT NULL
+           AND  pa.is_active = true
+
+       ) combined
+       ORDER BY name`,
+      [studentId]
+    );
+  }
+
+  async listParentContacts(schema: string): Promise<any[]> {
+    return tenantQuery<any>(
+      schema,
+      `SELECT pa.id,
+              TRIM(CONCAT(pa.first_name, ' ', pa.last_name)) AS name,
+              pa.email,
+              pa.relation                                     AS role,
+              'parent'                                        AS type,
+              (SELECT STRING_AGG(DISTINCT CONCAT(s.first_name, ' ', s.last_name), ', ')
+               FROM   ${schema}.students s
+               WHERE  s.id = ANY(pa.student_ids) AND s.is_active = true
+              )                                              AS students
+       FROM   ${schema}.parent_accounts pa
+       WHERE  pa.is_active = true
+       ORDER  BY pa.first_name`,
+      []
+    );
   }
 
   // ── Messages ──────────────────────────────────────────────────────────────

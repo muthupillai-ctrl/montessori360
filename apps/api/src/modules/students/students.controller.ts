@@ -161,3 +161,14 @@ export async function deleteParent(req: Request, res: Response): Promise<void> {
   );
   res.json({ message: 'Parent record deleted' });
 }
+
+export async function inviteParentToPortal(req: Request, res: Response): Promise<void> {
+  const { authService } = await import('../auth/auth.service.js');
+  const schema    = req.user!.tenantSchema;
+  const studentId = req.params['studentId'] as string;
+  const data      = req.body as { email: string; first_name: string; last_name: string; phone: string; relation: string };
+
+  const { id, inviteToken } = await authService.createParentAccount(schema, studentId, data);
+  // In production: send email with the invite link. For now return token in response for testing.
+  res.status(201).json({ data: { parentAccountId: id, inviteToken } });
+}

@@ -11,26 +11,9 @@ export function getPool(): Pool {
 }
 
 export async function connectDatabase(): Promise<void> {
-  // Aiven PostgreSQL requires SSL. The connection string carries
-  // ?sslmode=require; we also set rejectUnauthorized:false so the
-  // self-signed Aiven CA is accepted without bundling the CA cert.
-  // For production, download the CA cert from the Aiven console and
-  // set rejectUnauthorized:true with the ca option instead.
-  const sslConfig = process.env.DATABASE_URL?.includes('aivencloud.com')
-    ? { ssl: { rejectUnauthorized: false } }
-    : {};
-
-        ////////////////BEGIN
-        const dbpath   = process.env.DB_CERT_PATH?.toString();
-        if (!dbpath) {
-          throw new Error('DB_CERT_PATH is not configured');
-        }
-        else
-          console.log("CERT FIE "+dbpath);
-
-if (!process.env.DB_CERT_PATH) {
-  throw new Error('DB_CERT_PATH is not configured');
-}
+  if (!process.env.DB_CERT_PATH) {
+    throw new Error('DB_CERT_PATH is not configured');
+  }
 
 pool = new Pool({
   host: process.env.DB_HOST,
@@ -38,6 +21,12 @@ pool = new Pool({
   database: process.env.DB_NAME,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
+  min: 0,
+  max: parseInt(process.env.DATABASE_POOL_MAX ?? '10', 10),
+  idleTimeoutMillis: 10_000,
+  connectionTimeoutMillis: 15_000,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 5_000,
   ssl: {
     rejectUnauthorized: false,
     ca: fs.readFileSync(process.env.DB_CERT_PATH).toString(),

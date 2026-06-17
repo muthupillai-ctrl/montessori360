@@ -329,6 +329,7 @@ export class ShellComponent implements OnInit {
           { label: 'Classes',      icon: 'class',             iconBg: 'rgba(5,150,105,.1)',  iconColor: '#059669', route: '/classes' },
           { label: 'Timetable',    icon: 'calendar_view_week', iconBg: 'rgba(20,184,166,.1)', iconColor: '#14B8A6', route: '/timetable' },
           { label: 'Journal',      icon: 'auto_stories',      iconBg: 'rgba(236,72,153,.1)', iconColor: '#EC4899', route: '/journal' },
+          { label: 'Homework',     icon: 'assignment',        iconBg: 'rgba(245,158,11,.1)', iconColor: '#D97706', route: '/homework' },
           { label: 'Observations', icon: 'psychology',        iconBg: 'rgba(99,102,241,.1)', iconColor: '#6366F1', route: '/observations' },
           { label: 'Reports',      icon: 'description',  iconBg: 'rgba(20,184,166,.1)', iconColor: '#14B8A6', route: '/reports' },
         ],

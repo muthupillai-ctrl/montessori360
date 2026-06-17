@@ -4,9 +4,29 @@ import { platformAuthGuard } from './core/guards/platform-auth.guard';
 
 export const routes: Routes = [
   {
+    path: 'parent/set-password',
+    loadComponent: () => import('./features/parent/parent-set-password.component').then(m => m.ParentSetPasswordComponent),
+  },
+  {
     path: 'driver',
     loadComponent: () => import('./features/driver/driver.component').then(m => m.DriverComponent),
     canActivate: [authGuard],
+  },
+  {
+    path: 'parent',
+    loadComponent: () => import('./features/parent/parent-shell.component').then(m => m.ParentShellComponent),
+    canActivate: [authGuard],
+    children: [
+      { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+      { path: 'dashboard',  loadComponent: () => import('./features/parent/parent-dashboard.component').then(m => m.ParentDashboardComponent) },
+      { path: 'attendance', loadComponent: () => import('./features/parent/parent-attendance.component').then(m => m.ParentAttendanceComponent) },
+      { path: 'fees',       loadComponent: () => import('./features/parent/parent-fees.component').then(m => m.ParentFeesComponent) },
+      { path: 'journal',    loadComponent: () => import('./features/parent/parent-journal.component').then(m => m.ParentJournalComponent) },
+      { path: 'progress',   loadComponent: () => import('./features/parent/parent-progress.component').then(m => m.ParentProgressComponent) },
+      { path: 'transport',  loadComponent: () => import('./features/parent/parent-transport.component').then(m => m.ParentTransportComponent) },
+      { path: 'homework',   loadComponent: () => import('./features/parent/parent-homework.component').then(m => m.ParentHomeworkComponent) },
+      { path: 'messages',   loadComponent: () => import('./features/parent/parent-messages.component').then(m => m.ParentMessagesComponent) },
+    ],
   },
   {
     path: 'login',
@@ -41,6 +61,10 @@ export const routes: Routes = [
       {
         path: 'journal',
         loadComponent: () => import('./features/journal/journal.component').then(m => m.JournalComponent),
+      },
+      {
+        path: 'homework',
+        loadComponent: () => import('./features/parent/homework-admin.component').then(m => m.HomeworkAdminComponent),
       },
       {
         path: 'observations',

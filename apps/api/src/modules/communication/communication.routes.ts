@@ -6,7 +6,7 @@ import {
 } from './communication.validators.js';
 import {
   listAnnouncements, getAnnouncement, createAnnouncement, publishAnnouncement, deleteAnnouncement,
-  listContacts,
+  listContacts, listStudentParentAccounts,
   listCirculars, createCircular, acknowledgeCircular,
   listConversations, getConversation, sendMessage, getUnreadCount, markAllRead,
 } from './communication.controller.js';
@@ -30,7 +30,8 @@ communicationRouter.post('/circulars',                    authorize(...BROADCAST
 communicationRouter.post('/circulars/:id/acknowledge',    authorize(...ALL_ROLES),       acknowledgeCircular);
 
 // ── Messages ──────────────────────────────────────────────────────────────────
-communicationRouter.get( '/messages/contacts',          authorize(...ALL_ROLES), listContacts);
+communicationRouter.get( '/messages/contacts',                                authorize(...ALL_ROLES), listContacts);
+communicationRouter.get( '/messages/student-parents/:studentId',              authorize(...ALL_ROLES), listStudentParentAccounts);
 communicationRouter.get( '/messages/unread-count',        authorize(...ALL_ROLES),       getUnreadCount);
 communicationRouter.get( '/messages/conversations',       authorize(...ALL_ROLES),       listConversations);
 communicationRouter.get( '/messages/conversations/:partnerId', authorize(...ALL_ROLES),  validateMessageFilters, getConversation);

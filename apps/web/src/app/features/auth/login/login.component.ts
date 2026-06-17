@@ -395,11 +395,14 @@ export class LoginComponent {
     this.auth.login(this.form.getRawValue()).subscribe({
       next:  () => {
         const role = this.auth.userRole();
-        this.router.navigate([role === 'driver' ? '/driver' : '/dashboard']);
+        if (role === 'driver') this.router.navigate(['/driver']);
+        else if (role === 'parent') this.router.navigate(['/parent']);
+        else this.router.navigate(['/dashboard']);
       },
       error: (err) => {
         this.loading.set(false);
-        this.error.set(err.error?.error?.message ?? 'Invalid credentials. Please try again.');
+        const msg = err.error?.error?.message ?? err.message ?? `Request failed (${err.status ?? 'network error'})`;
+        this.error.set(msg);
       },
     });
   }
