@@ -5,6 +5,7 @@ import { query, tenantQuery } from '../../config/database.js';
 import { cacheSet, cacheGet, cacheDel } from '../../config/redis.js';
 import { AppError } from '../../middleware/errorHandler.js';
 import type { JwtPayload } from '../../middleware/auth.js';
+import { sendPasswordResetEmail } from '../../utils/email.js';
 
 interface UserRow {
   id: string;
@@ -169,30 +170,57 @@ class AuthService {
     const [tenant] = await query<TenantRow>(`SELECT id, schema_name FROM public.tenants WHERE code = $1`, [tenantCode.toLowerCase()]);
     if (!tenant) return; // Silently ignore — no enumeration
 
-    const [user] = await tenantQuery<UserRow>(
+    const lowerEmail = email.toLowerCase();
+
+    // Check staff first, then parent accounts
+    const [staff] = await tenantQuery<UserRow>(
       tenant.schema_name,
       `SELECT id, email FROM staff WHERE email = $1 AND is_active = true`,
-      [email.toLowerCase()]
+      [lowerEmail]
     );
-    if (!user) return;
+    console.log('[forgotPassword] staff found:', !!staff);
 
+    const [parent] = !staff
+      ? await tenantQuery<UserRow>(
+          tenant.schema_name,
+          `SELECT id, email, is_active FROM parent_accounts WHERE email = $1`,
+          [lowerEmail]
+        )
+      : [undefined];
+    console.log('[forgotPassword] parent found:', !!parent, 'is_active:', (parent as any)?.is_active);
+
+    const actor = staff ?? parent;
+    if (!actor) {
+      console.log('[forgotPassword] no account found for', lowerEmail);
+      return;
+    }
+    console.log('[forgotPassword] sending reset to', lowerEmail, 'as', staff ? 'staff' : 'parent');
+
+    const userType = staff ? 'staff' : 'parent';
     const resetToken = uuidv4();
-    await cacheSet(`pwreset:${resetToken}`, { userId: user.id, tenantSchema: tenant.schema_name }, 3600); // 1 hour TTL
+    await cacheSet(`pwreset:${resetToken}`, { userId: actor.id, tenantSchema: tenant.schema_name, userType }, 3600);
 
-    // TODO: dispatch SES email with reset link
-    // await emailService.sendPasswordReset(user.email, resetToken);
+    const appUrl = process.env.APP_URL ?? 'http://localhost:4200';
+    const resetLink = `${appUrl}/reset-password?token=${resetToken}`;
+    await sendPasswordResetEmail(actor.email, resetLink);
   }
 
   async resetPassword(token: string, newPassword: string): Promise<void> {
-    const stored = await cacheGet<{ userId: string; tenantSchema: string }>(`pwreset:${token}`);
+    const stored = await cacheGet<{ userId: string; tenantSchema: string; userType?: string }>(`pwreset:${token}`);
     if (!stored) throw AppError.badRequest('Invalid or expired reset token');
 
     const hash = await bcrypt.hash(newPassword, 12);
-    await tenantQuery(
-      stored.tenantSchema,
-      `UPDATE staff SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
-      [hash, stored.userId]
-    );
+    if (stored.userType === 'parent') {
+      await tenantQuery(stored.tenantSchema,
+        `UPDATE parent_accounts SET password_hash = $1, is_active = true, updated_at = NOW() WHERE id = $2`,
+        [hash, stored.userId]
+      );
+    } else {
+      await tenantQuery(stored.tenantSchema,
+        `UPDATE staff SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+        [hash, stored.userId]
+      );
+    }
 
     await cacheDel(`pwreset:${token}`);
   }

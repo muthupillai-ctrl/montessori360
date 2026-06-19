@@ -1,4 +1,7 @@
 import {
+  BreakpointObserver
+} from "./chunk-S4UDTWLD.js";
+import {
   _VisuallyHiddenLoader,
   _setInnerHtml
 } from "./chunk-UH2VYBLF.js";
@@ -6,18 +9,15 @@ import {
   DomSanitizer
 } from "./chunk-5Q6SLH5J.js";
 import {
-  BreakpointObserver
-} from "./chunk-S4UDTWLD.js";
-import {
   _CdkPrivateStyleLoader
 } from "./chunk-JD4SN5P7.js";
+import {
+  Platform
+} from "./chunk-Q4MLMR4S.js";
 import {
   coerceElement,
   coerceNumberProperty
 } from "./chunk-66BNCEIB.js";
-import {
-  Platform
-} from "./chunk-Q4MLMR4S.js";
 import {
   APP_ID,
   DOCUMENT,
@@ -2492,4 +2492,4 @@ export {
   removeAriaReferencedId,
   AriaDescriber
 };
-//# sourceMappingURL=chunk-ETERNHFE.js.map
+//# sourceMappingURL=chunk-RRUCT4PB.js.map

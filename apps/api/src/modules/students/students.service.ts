@@ -415,13 +415,29 @@ class StudentsService {
   }
 
   async upsertParent(schema: string, studentId: string, dto: any, id?: string): Promise<any> {
-    // Enforce max 3 parents per student
     if (!id) {
+      // Enforce max 3 parents per student
       const [{ count }] = await tenantQuery<{ count: string }>(schema,
         `SELECT COUNT(*)::text AS count FROM ${schema}.student_parents WHERE student_id = $1`,
         [studentId]
       );
       if (parseInt(count) >= 3) throw AppError.badRequest('Maximum 3 parents allowed per student');
+
+      // Prevent duplicate email within the same student
+      if (dto.email) {
+        const [dup] = await tenantQuery<{ id: string }>(schema,
+          `SELECT id FROM ${schema}.student_parents WHERE student_id = $1 AND LOWER(email) = LOWER($2)`,
+          [studentId, dto.email]
+        );
+        if (dup) throw AppError.conflict('A parent with this email is already added to this student');
+      }
+    } else if (dto.email) {
+      // On update: ensure we're not duplicating another parent's email for this student
+      const [dup] = await tenantQuery<{ id: string }>(schema,
+        `SELECT id FROM ${schema}.student_parents WHERE student_id = $1 AND LOWER(email) = LOWER($2) AND id != $3`,
+        [studentId, dto.email, id]
+      );
+      if (dup) throw AppError.conflict('Another parent with this email is already added to this student');
     }
 
     // If setting as primary, clear existing primary first

@@ -2,14 +2,14 @@ import {
   _getAnimationsState
 } from "./chunk-S4UDTWLD.js";
 import "./chunk-CZW6SUH7.js";
-import {
-  BidiModule
-} from "./chunk-UP3UAPFB.js";
 import "./chunk-Q4MLMR4S.js";
 import {
   NgTemplateOutlet
 } from "./chunk-7BH5GIDQ.js";
 import "./chunk-3VB5ZPHS.js";
+import {
+  BidiModule
+} from "./chunk-UP3UAPFB.js";
 import {
   ChangeDetectionStrategy,
   Component,

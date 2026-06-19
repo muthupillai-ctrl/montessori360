@@ -1,6 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
@@ -12,7 +12,7 @@ import { AuthService } from '../../../core/services/auth.service';
   selector: 'app-login',
   standalone: true,
   imports: [
-    ReactiveFormsModule,
+    ReactiveFormsModule, RouterLink,
     MatFormFieldModule, MatInputModule,
     MatButtonModule, MatIconModule, MatProgressSpinnerModule,
   ],
@@ -96,7 +96,7 @@ import { AuthService } from '../../../core/services/auth.service';
             <div class="field-group">
               <div style="display:flex;justify-content:space-between;align-items:center">
                 <label class="field-label">Password</label>
-                <a class="forgot-link">Forgot password?</a>
+                <a class="forgot-link" routerLink="/forgot-password">Forgot password?</a>
               </div>
               <div class="input-wrap" [class.focused]="focused === 'pw'" [class.error]="form.get('password')?.invalid && form.get('password')?.touched">
                 <mat-icon class="input-icon">lock_outline</mat-icon>
