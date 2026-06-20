@@ -10,6 +10,8 @@ import {
   assignClass, getSiblings, linkSiblings, unlinkSiblings,
   promoteStudents, listClasses, createClass, updateClass, deleteClass,
   listParents, createParent, updateParent, deleteParent, inviteParentToPortal,
+  listAllParents, listPortalAccounts, inviteParentByRecord,
+  resendParentInvite, togglePortalAccount, deletePortalAccount,
 } from './students.controller.js';
 
 export const studentsRouter = Router();
@@ -24,6 +26,14 @@ studentsRouter.get( '/classes', authorize(...VIEW_ROLES),  listClasses);
 studentsRouter.post(  '/classes',           authorize(...ADMIN_ROLES), createClass);
 studentsRouter.put(   '/classes/:classId',   authorize(...ADMIN_ROLES), updateClass);
 studentsRouter.delete('/classes/:classId',   authorize(...ADMIN_ROLES), deleteClass);
+
+// ── Parent directory (global) — must be before /:id ──────────────────────────
+studentsRouter.get(  '/all-parents',                            authorize(...VIEW_ROLES),   listAllParents);
+studentsRouter.get(  '/portal-accounts',                        authorize(...MANAGE_ROLES), listPortalAccounts);
+studentsRouter.post( '/all-parents/:parentRecordId/invite',     authorize(...MANAGE_ROLES), inviteParentByRecord);
+studentsRouter.post( '/portal-accounts/:accountId/resend',      authorize(...MANAGE_ROLES), resendParentInvite);
+studentsRouter.patch( '/portal-accounts/:accountId/toggle',      authorize(...MANAGE_ROLES), togglePortalAccount);
+studentsRouter.delete('/portal-accounts/:accountId',             authorize(...MANAGE_ROLES), deletePortalAccount);
 
 // ── Students CRUD ─────────────────────────────────────────────────────────────
 studentsRouter.get('/',    authorize(...VIEW_ROLES),   validateStudentFilters, listStudents);
@@ -40,7 +50,7 @@ studentsRouter.get('/:id/siblings',    authorize(...VIEW_ROLES),   validateStude
 studentsRouter.post('/siblings/link',  authorize(...MANAGE_ROLES), validateLinkSiblings, linkSiblings);
 studentsRouter.post('/siblings/unlink',authorize(...MANAGE_ROLES), validateLinkSiblings, unlinkSiblings);
 
-// ── Parents ───────────────────────────────────────────────────────────────────
+// ── Parents per student ───────────────────────────────────────────────────────
 studentsRouter.get(   '/:studentId/parents',                  authorize(...VIEW_ROLES),   listParents);
 studentsRouter.post(  '/:studentId/parents',                  authorize(...MANAGE_ROLES), createParent);
 studentsRouter.put(   '/:studentId/parents/:parentId',        authorize(...MANAGE_ROLES), updateParent);

@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
 import { studentsService } from './students.service.js';
 import type { CreateStudentDto, UpdateStudentDto, StudentFilters, AssignClassDto } from './students.types.js';
+import { sendParentInviteEmail } from '../../utils/email.js';
+import { query } from '../../config/database.js';
+import { AppError } from '../../middleware/errorHandler.js';
 
 // ── Students ──────────────────────────────────────────────────────────────────
 
@@ -162,6 +165,91 @@ export async function deleteParent(req: Request, res: Response): Promise<void> {
   res.json({ message: 'Parent record deleted' });
 }
 
+export async function listAllParents(req: Request, res: Response): Promise<void> {
+  const schema = req.user!.tenantSchema;
+  const search = req.query['search'] as string | undefined;
+  const data   = await studentsService.listAllParents(schema, search);
+  res.json({ data });
+}
+
+export async function listPortalAccounts(req: Request, res: Response): Promise<void> {
+  const schema = req.user!.tenantSchema;
+  const search = req.query['search'] as string | undefined;
+  const status = req.query['status'] as string | undefined;
+  const data   = await studentsService.listPortalAccounts(schema, search, status);
+  res.json({ data });
+}
+
+export async function inviteParentByRecord(req: Request, res: Response): Promise<void> {
+  const { authService } = await import('../auth/auth.service.js');
+  const schema         = req.user!.tenantSchema;
+  const parentRecordId = req.params['parentRecordId'] as string;
+
+  const record = await studentsService.getParentRecordById(schema, parentRecordId);
+  if (!record.email) throw AppError.badRequest('This parent has no email address — cannot invite');
+
+  const { id, inviteToken } = await authService.createParentAccount(schema, record.student_id, {
+    email:      record.email,
+    first_name: record.first_name,
+    last_name:  record.last_name,
+    phone:      record.mobile ?? '',
+    relation:   record.relation,
+  });
+
+  const [tenant] = await query<{ name: string }>(
+    `SELECT name FROM public.tenants WHERE id = $1`, [req.user!.tenantId]
+  );
+  const appUrl     = process.env.APP_URL ?? 'http://localhost:4200';
+  const inviteLink = `${appUrl}/parent/set-password?token=${inviteToken}`;
+  await sendParentInviteEmail(record.email, inviteLink, `${record.first_name} ${record.last_name}`, tenant?.name ?? 'Your school');
+
+  res.status(201).json({ data: { parentAccountId: id, inviteLink, emailSent: true } });
+}
+
+export async function resendParentInvite(req: Request, res: Response): Promise<void> {
+  const { authService } = await import('../auth/auth.service.js');
+  const schema    = req.user!.tenantSchema;
+  const accountId = req.params['accountId'] as string;
+
+  const [pa] = await (await import('../../config/database.js')).tenantQuery<{ email: string; first_name: string; last_name: string }>(
+    schema,
+    `SELECT email, first_name, last_name FROM parent_accounts WHERE id = $1`,
+    [accountId]
+  );
+  if (!pa) throw AppError.notFound('Portal account');
+
+  const token = await authService.resendParentInvite(schema, accountId);
+
+  const [tenant] = await query<{ name: string }>(
+    `SELECT name FROM public.tenants WHERE id = $1`, [req.user!.tenantId]
+  );
+  const appUrl     = process.env.APP_URL ?? 'http://localhost:4200';
+  const inviteLink = `${appUrl}/parent/set-password?token=${token}`;
+  await sendParentInviteEmail(pa.email, inviteLink, `${pa.first_name} ${pa.last_name}`, tenant?.name ?? 'Your school');
+
+  res.json({ data: { sent: true } });
+}
+
+export async function togglePortalAccount(req: Request, res: Response): Promise<void> {
+  const { authService } = await import('../auth/auth.service.js');
+  const schema    = req.user!.tenantSchema;
+  const accountId = req.params['accountId'] as string;
+  const { is_active } = req.body as { is_active: boolean };
+  await authService.togglePortalAccount(schema, accountId, is_active);
+  res.json({ data: { updated: true } });
+}
+
+export async function deletePortalAccount(req: Request, res: Response): Promise<void> {
+  const schema    = req.user!.tenantSchema;
+  const accountId = req.params['accountId'] as string;
+  const { tenantQuery } = await import('../../config/database.js');
+  const rows = await tenantQuery<{ id: string }>(schema,
+    `DELETE FROM parent_accounts WHERE id = $1 RETURNING id`, [accountId]
+  );
+  if (!rows.length) throw AppError.notFound('Portal account');
+  res.json({ data: { deleted: true } });
+}
+
 export async function inviteParentToPortal(req: Request, res: Response): Promise<void> {
   const { authService } = await import('../auth/auth.service.js');
   const schema    = req.user!.tenantSchema;
@@ -169,6 +257,14 @@ export async function inviteParentToPortal(req: Request, res: Response): Promise
   const data      = req.body as { email: string; first_name: string; last_name: string; phone: string; relation: string };
 
   const { id, inviteToken } = await authService.createParentAccount(schema, studentId, data);
-  // In production: send email with the invite link. For now return token in response for testing.
+
+  const [tenant] = await query<{ name: string }>(
+    `SELECT name FROM public.tenants WHERE id = $1`, [req.user!.tenantId]
+  );
+  const appUrl     = process.env.APP_URL ?? 'http://localhost:4200';
+  const inviteLink = `${appUrl}/parent/set-password?token=${inviteToken}`;
+  const parentName = `${data.first_name} ${data.last_name}`;
+  await sendParentInviteEmail(data.email, inviteLink, parentName, tenant?.name ?? 'Your school');
+
   res.status(201).json({ data: { parentAccountId: id, inviteToken } });
 }

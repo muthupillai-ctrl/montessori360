@@ -83,6 +83,12 @@ export async function sendParentInviteEmail(to: string, inviteLink: string, pare
           Click the button below to set your password and get started.
           This link expires in <strong>72 hours</strong>.
         </p>
+        <div style="background:#f1f5f9;border-radius:8px;padding:14px 18px;margin:0 0 24px">
+          <p style="margin:0 0 4px;font-size:13px;color:#64748b">Your login details</p>
+          <p style="margin:0;font-size:14px;color:#1e293b">
+            <strong>Username&nbsp;/&nbsp;Email:</strong>&nbsp;${to}
+          </p>
+        </div>
         <a href="${inviteLink}"
            style="display:inline-block;background:#059669;color:#fff;text-decoration:none;
                   padding:12px 28px;border-radius:8px;font-weight:600;font-size:15px">
@@ -93,7 +99,7 @@ export async function sendParentInviteEmail(to: string, inviteLink: string, pare
         </p>
       </div>
     `,
-    text: `${schoolName} has invited you to their parent portal.\n\nSet up your account:\n${inviteLink}\n\nThis link expires in 72 hours.`,
+    text: `${schoolName} has invited you to their parent portal.\n\nYour username / email: ${to}\n\nSet up your account:\n${inviteLink}\n\nThis link expires in 72 hours.`,
   });
 
   logger.info(`[email] Parent invite sent to ${to}`);

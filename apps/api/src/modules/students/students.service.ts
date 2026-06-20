@@ -26,7 +26,7 @@ class StudentsService {
 
   // ── List students ─────────────────────────────────────────────────────────
   async list(schema: string, filters: StudentFilters): Promise<PaginatedResponse<StudentRow>> {
-    const { class_id, is_active = true, search, page = 1, limit = 20 } = filters;
+    const { class_id, is_active = true, no_class, search, page = 1, limit = 20 } = filters;
     const offset = (page - 1) * limit;
 
     const cacheKey = `${schema}:students:list:${JSON.stringify(filters)}`;
@@ -40,6 +40,9 @@ class StudentsService {
     if (class_id) {
       conditions.push(`s.class_id = $${i++}`);
       params.push(class_id);
+    }
+    if (no_class) {
+      conditions.push(`s.class_id IS NULL`);
     }
     if (search) {
       conditions.push(`(s.first_name ILIKE $${i} OR s.last_name ILIKE $${i} OR s.admission_no ILIKE $${i})`);
@@ -492,6 +495,87 @@ class StudentsService {
       `DELETE FROM ${schema}.student_parents WHERE id = $1 AND student_id = $2`,
       [parentId, studentId]
     );
+  }
+
+  async listAllParents(schema: string, search?: string): Promise<any[]> {
+    const term = search ? `%${search}%` : null;
+    return tenantQuery<any>(schema, `
+      SELECT
+        CASE WHEN sp.email IS NOT NULL THEN LOWER(sp.email) ELSE sp.id::text END AS group_key,
+        MIN(sp.id::text)    AS parent_record_id,
+        MIN(sp.first_name)  AS first_name,
+        MIN(sp.last_name)   AS last_name,
+        MIN(sp.email)       AS email,
+        MIN(sp.mobile)      AS mobile,
+        bool_or(sp.is_primary) AS is_primary,
+        jsonb_agg(jsonb_build_object(
+          'id',       s.id,
+          'name',     s.first_name || ' ' || s.last_name,
+          'class',    c.name,
+          'relation', sp.relation
+        )) AS students,
+        CASE
+          WHEN MAX(pa.id::text) IS NULL THEN 'none'
+          WHEN bool_or(pa.is_active) THEN 'active'
+          ELSE 'inactive'
+        END AS portal_status,
+        MAX(pa.id::text) AS portal_account_id
+      FROM ${schema}.student_parents sp
+      JOIN ${schema}.students s ON s.id = sp.student_id
+      LEFT JOIN ${schema}.classes c ON c.id = s.class_id
+      LEFT JOIN ${schema}.parent_accounts pa
+             ON sp.email IS NOT NULL AND LOWER(pa.email) = LOWER(sp.email)
+      WHERE ($1::text IS NULL
+             OR sp.first_name ILIKE $1
+             OR sp.last_name  ILIKE $1
+             OR LOWER(sp.email) ILIKE $1)
+      GROUP BY CASE WHEN sp.email IS NOT NULL THEN LOWER(sp.email) ELSE sp.id::text END
+      ORDER BY MIN(sp.last_name), MIN(sp.first_name)
+    `, [term]);
+  }
+
+  async listPortalAccounts(schema: string, search?: string, status?: string): Promise<any[]> {
+    const term   = search ? `%${search}%` : null;
+    const active = status === 'active' ? true : status === 'inactive' ? false : null;
+    return tenantQuery<any>(schema, `
+      SELECT
+        pa.id,
+        pa.email,
+        pa.first_name,
+        pa.last_name,
+        pa.phone,
+        pa.is_active,
+        pa.created_at,
+        (
+          SELECT jsonb_agg(jsonb_build_object(
+            'id',    s.id,
+            'name',  s.first_name || ' ' || s.last_name,
+            'class', c.name
+          ))
+          FROM   unnest(pa.student_ids) AS sid
+          JOIN   ${schema}.students s ON s.id = sid
+          LEFT JOIN ${schema}.classes c ON c.id = s.class_id
+        ) AS students
+      FROM ${schema}.parent_accounts pa
+      WHERE ($1::text IS NULL
+             OR pa.first_name ILIKE $1
+             OR pa.last_name  ILIKE $1
+             OR pa.email      ILIKE $1)
+        AND ($2::boolean IS NULL OR pa.is_active = $2)
+      ORDER BY pa.last_name, pa.first_name
+    `, [term, active]);
+  }
+
+  async getParentRecordById(schema: string, parentRecordId: string): Promise<any> {
+    const [row] = await tenantQuery<any>(schema,
+      `SELECT sp.*, s.id AS student_id
+       FROM ${schema}.student_parents sp
+       JOIN ${schema}.students s ON s.id = sp.student_id
+       WHERE sp.id = $1`,
+      [parentRecordId]
+    );
+    if (!row) throw AppError.notFound('Parent record');
+    return row;
   }
 
   private async audit(

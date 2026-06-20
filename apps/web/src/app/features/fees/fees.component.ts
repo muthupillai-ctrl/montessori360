@@ -77,7 +77,7 @@ import type { FeeInvoice, PaginatedResponse } from '../../core/models';
     </div>
 
     <!-- Tabs -->
-    <mat-tab-group class="fees-tabs" (selectedTabChange)="onTabChange($event.index)">
+    <mat-tab-group class="fees-tabs" [selectedIndex]="selectedTab()" (selectedTabChange)="onTabChange($event.index)">
 
       <!-- ── Invoices ────────────────────────────────────────────── -->
       <mat-tab label="Invoices">
@@ -140,7 +140,7 @@ import type { FeeInvoice, PaginatedResponse } from '../../core/models';
                 <tbody>
                   @for (inv of invoices(); track inv.id) {
                     <tr class="data-row">
-                      <td><span class="mono-chip">{{ inv.invoice_no }}</span></td>
+                      <td><span class="mono-chip invoice-link" (click)="printReceipt(inv)">{{ inv.invoice_no }}</span></td>
                       <td>
                         <div class="student-cell">
                           <div class="student-av" [style.background]="getAvatarColor(inv.student_name ?? '')">
@@ -537,6 +537,10 @@ import type { FeeInvoice, PaginatedResponse } from '../../core/models';
       font-size: 11.5px; background: var(--bg); color: var(--blue);
       padding: 2px 8px; border-radius: 5px; font-weight: 500; white-space: nowrap;
     }
+    .invoice-link {
+      cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+      &:hover { opacity: 0.75; }
+    }
     .count-chip {
       background: var(--amber-light); color: #92400E;
       font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 5px;
@@ -657,7 +661,9 @@ export class FeesComponent implements OnInit {
   defaultersCount   = signal(0);
   statusFilter      = signal('');
   searchTerm        = signal('');
+  studentIdFilter   = signal('');
   page              = signal(1);
+  selectedTab       = signal(0);
   pageSize          = 20;
 
   summary        = signal({ billed: 0, collected: 0, outstanding: 0, collection_pct: 0 });
@@ -701,8 +707,9 @@ export class FeesComponent implements OnInit {
   loadInvoices() {
     this.loading.set(true);
     const params: Record<string, unknown> = { page: this.page(), limit: this.pageSize };
-    if (this.statusFilter()) params['status'] = this.statusFilter();
-    if (this.searchTerm())   params['search']  = this.searchTerm();
+    if (this.statusFilter())    params['status']     = this.statusFilter();
+    if (this.searchTerm())      params['search']     = this.searchTerm();
+    if (this.studentIdFilter()) params['student_id'] = this.studentIdFilter();
 
     this.api.get<PaginatedResponse<FeeInvoice>>('/fees/invoices', params).subscribe({
       next: (res: any) => {
@@ -727,6 +734,7 @@ export class FeesComponent implements OnInit {
   }
 
   onTabChange(idx: number) {
+    this.selectedTab.set(idx);
     if (idx === 1) this.loadDefaulters();
     if (idx === 2) this.loadSummary();
     if (idx === 3) this.loadFeeStructures();
@@ -768,9 +776,9 @@ export class FeesComponent implements OnInit {
   getStructureTotal(fs: FeeStructure): number {
     return (fs.heads ?? []).reduce((s: number, h: any) => s + (+h.amount || 0), 0);
   }
-  onStatusFilter(val: string) { this.statusFilter.set(val); this.page.set(1); this.loadInvoices(); }
-  onSearch(e: Event) { this.searchTerm.set((e.target as HTMLInputElement).value); this.page.set(1); this.loadInvoices(); }
-  clearSearch() { this.searchTerm.set(''); this.page.set(1); this.loadInvoices(); }
+  onStatusFilter(val: string) { this.studentIdFilter.set(''); this.statusFilter.set(val); this.page.set(1); this.loadInvoices(); }
+  onSearch(e: Event) { this.studentIdFilter.set(''); this.searchTerm.set((e.target as HTMLInputElement).value); this.page.set(1); this.loadInvoices(); }
+  clearSearch() { this.studentIdFilter.set(''); this.searchTerm.set(''); this.page.set(1); this.loadInvoices(); }
   onPage(e: PageEvent) { this.page.set(e.pageIndex + 1); this.pageSize = e.pageSize; this.loadInvoices(); }
 
   min(a: number, b: number) { return Math.min(a, b); }
@@ -862,9 +870,11 @@ export class FeesComponent implements OnInit {
 
   downloadCsv()   { this.snack.open('Export — coming soon', 'OK', { duration: 2000 }); }
   viewStudentInvoices(studentId: string) {
+    this.studentIdFilter.set(studentId);
     this.statusFilter.set('');
+    this.searchTerm.set('');
     this.page.set(1);
-    // Switch to invoices tab and filter by student
+    this.selectedTab.set(0);
     this.loadInvoices();
   }
 }

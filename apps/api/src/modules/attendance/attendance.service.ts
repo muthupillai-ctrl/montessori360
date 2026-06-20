@@ -135,9 +135,24 @@ class AttendanceService {
   async bulkMark(schema: string, dto: BulkMarkDto, markedBy: string): Promise<number> {
     const date = dto.date ?? new Date().toISOString().slice(0, 10);
 
+    let records = dto.records ?? [];
+
+    if (records.length === 0 && dto.status) {
+      const students = await tenantQuery<{ id: string }>(
+        schema,
+        dto.class_id
+          ? `SELECT id FROM ${schema}.students WHERE is_active = true AND class_id = $1`
+          : `SELECT id FROM ${schema}.students WHERE is_active = true`,
+        dto.class_id ? [dto.class_id] : [],
+      );
+      records = students.map(s => ({ student_id: s.id, status: dto.status! }));
+    }
+
+    if (records.length === 0) return 0;
+
     return tenantTransaction(schema, async (client) => {
       let count = 0;
-      for (const record of dto.records) {
+      for (const record of records) {
         await client.query(
           `INSERT INTO ${schema}.attendance (student_id, date, status, mode, marked_by, notes)
            VALUES ($1, $2, $3, 'manual', $4, $5)

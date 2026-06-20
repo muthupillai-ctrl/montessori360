@@ -23,10 +23,9 @@ pool = new Pool({
   password: process.env.DB_PASSWORD,
   min: 0,
   max: parseInt(process.env.DATABASE_POOL_MAX ?? '10', 10),
-  idleTimeoutMillis: 10_000,
+  idleTimeoutMillis: 5_000,        // close idle connections before Aiven LB kills them
   connectionTimeoutMillis: 15_000,
-  keepAlive: true,
-  keepAliveInitialDelayMillis: 5_000,
+  keepAlive: false,                 // don't bother — we close idle connections quickly anyway
   ssl: {
     rejectUnauthorized: false,
     ca: fs.readFileSync(process.env.DB_CERT_PATH).toString(),
@@ -42,8 +41,13 @@ pool = new Pool({
    // ...sslConfig,
   //});
 
-  pool.on('error', (err) => {
-    logger.error('Unexpected PostgreSQL pool error', err);
+  pool.on('error', (err: any) => {
+    // ETIMEDOUT / ECONNRESET are expected when Aiven's LB drops idle connections
+    if (err.code === 'ETIMEDOUT' || err.code === 'ECONNRESET' || err.code === 'ECONNREFUSED') {
+      logger.warn(`PostgreSQL pool: idle connection dropped by server (${err.code})`);
+    } else {
+      logger.error('Unexpected PostgreSQL pool error', err);
+    }
   });
 
   // Verify connection

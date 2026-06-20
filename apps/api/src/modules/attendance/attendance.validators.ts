@@ -22,13 +22,18 @@ export const checkOutSchema = z.object({
 });
 
 export const bulkMarkSchema = z.object({
-  date: isoDateSchema.optional(),
-  records: z.array(z.object({
+  date:     isoDateSchema.optional(),
+  class_id: z.string().uuid().optional(),
+  status:   attendanceStatusSchema.optional(),
+  records:  z.array(z.object({
     student_id: z.string().uuid(),
     status:     attendanceStatusSchema,
     notes:      z.string().max(500).optional(),
-  })).min(1, 'At least one record required'),
-});
+  })).optional(),
+}).refine(
+  d => (d.records && d.records.length > 0) || d.status !== undefined,
+  { message: 'Provide either a records array or a status' },
+);
 
 export const attendanceFiltersSchema = z.object({
   date:       isoDateSchema.optional(),

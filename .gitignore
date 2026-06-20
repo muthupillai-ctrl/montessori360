@@ -1,3 +1,8 @@
+# Angular
+.angular/
+**/.angular/
+
+
 # Dependencies
 node_modules/
 .pnp
@@ -7,6 +12,8 @@ node_modules/
 dist/
 build/
 .next/
+**/dist/
+
 
 # Environment files
 .env
@@ -47,3 +54,4 @@ apps/api/uploads/
 .cache/
 .angular/cache/
 .claude/
+

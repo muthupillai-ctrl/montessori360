@@ -43,9 +43,12 @@ export const createStudentSchema = z.object({
 
 export const updateStudentSchema = createStudentSchema.partial();
 
+const boolParam = z.preprocess((v) => v === 'false' ? false : v === 'true' ? true : v, z.boolean());
+
 export const studentFiltersSchema = z.object({
   class_id:  z.string().uuid().optional(),
-  is_active: z.preprocess((v) => v === 'false' ? false : v === 'true' ? true : v, z.boolean()).optional(),
+  is_active: boolParam.optional(),
+  no_class:  boolParam.optional(),
   search:    z.string().max(100).optional(),
   page:      z.preprocess(Number, z.number().int().min(1)).optional().default(1),
   limit:     z.preprocess(Number, z.number().int().min(1).max(500)).optional().default(20),

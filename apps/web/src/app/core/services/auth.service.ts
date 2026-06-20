@@ -5,6 +5,19 @@ import { tap, catchError, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import type { LoginRequest, LoginResponse, AuthUser } from '../models';
 
+// Role → default landing route (keeps auth.service free of RoleService to avoid circular dep)
+const ROLE_HOME: Record<string, string> = {
+  owner:            '/dashboard',
+  principal:        '/dashboard',
+  teacher:          '/dashboard',
+  assistant_teacher:'/dashboard',
+  accountant:       '/dashboard',
+  admission_staff:  '/dashboard',
+  support:          '/dashboard',
+  driver:           '/driver',
+  parent:           '/parent/dashboard',
+};
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private http   = inject(HttpClient);
@@ -28,6 +41,8 @@ export class AuthService {
         this._user.set(res.user);
         localStorage.setItem('access_token', res.accessToken);
         localStorage.setItem('auth_user', JSON.stringify(res.user));
+        const home = ROLE_HOME[res.user.role] ?? '/dashboard';
+        this.router.navigate([home]);
       }),
       catchError(err => throwError(() => err))
     );

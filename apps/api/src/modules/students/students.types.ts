@@ -76,6 +76,7 @@ export interface UpdateStudentDto extends Partial<CreateStudentDto> {}
 export interface StudentFilters {
   class_id?: string;
   is_active?: boolean;
+  no_class?: boolean;
   search?: string;      // searches first_name, last_name, admission_no
   page?: number;
   limit?: number;

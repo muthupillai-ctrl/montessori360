@@ -1,5 +1,4 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { DatePipe } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
@@ -8,41 +7,63 @@ import { ParentStateService } from './parent-state.service';
 @Component({
   selector: 'app-parent-homework',
   standalone: true,
-  imports: [MatIconModule, MatProgressSpinnerModule, DatePipe],
+  imports: [MatProgressSpinnerModule, DatePipe],
   template: `
     <div class="page">
-      <div class="page-title">Homework</div>
 
-      <div class="filter-tabs">
-        <button class="ftab" [class.active]="filter() === 'upcoming'" (click)="filter.set('upcoming')">Upcoming</button>
-        <button class="ftab" [class.active]="filter() === 'past'"     (click)="filter.set('past')">Past</button>
-        <button class="ftab" [class.active]="filter() === 'all'"      (click)="filter.set('all')">All</button>
+      <!-- Filter tabs -->
+      <div class="filter-bar">
+        <button class="ftab" [class.active]="filter() === 'upcoming'" (click)="filter.set('upcoming')">
+          <i class="ti ti-clock"></i> Upcoming
+        </button>
+        <button class="ftab" [class.active]="filter() === 'past'" (click)="filter.set('past')">
+          <i class="ti ti-history"></i> Past
+        </button>
+        <button class="ftab" [class.active]="filter() === 'all'" (click)="filter.set('all')">
+          <i class="ti ti-list"></i> All
+        </button>
       </div>
 
       @if (loading()) {
         <div class="loading"><mat-progress-spinner diameter="28" mode="indeterminate"/></div>
       } @else if (!filtered().length) {
-        <div class="empty">No homework {{ filter() === 'upcoming' ? 'due upcoming' : filter() === 'past' ? 'in past' : '' }}.</div>
+        <div class="empty-state">
+          <div class="empty-icon">{{ filter() === 'upcoming' ? '🎉' : '📝' }}</div>
+          <div class="empty-title">{{ filter() === 'upcoming' ? 'All done!' : 'Nothing here' }}</div>
+          <div class="empty-sub">{{ filter() === 'upcoming' ? 'No upcoming homework. Great job!' : 'No homework for this period.' }}</div>
+        </div>
       } @else {
         <div class="hw-list">
           @for (hw of filtered(); track hw.id) {
-            <div class="hw-card" [class.overdue]="isOverdue(hw.due_date)">
+            <div class="hw-card" [class.overdue]="isOverdue(hw.due_date) && filter() !== 'past'">
+
               <div class="hw-top">
-                <div>
-                  @if (hw.subject) { <span class="subject-tag">{{ hw.subject }}</span> }
+                <div class="hw-icon-wrap" [class]="subjectColor(hw.subject)">
+                  <i class="ti ti-pencil"></i>
+                </div>
+                <div class="hw-meta">
+                  @if (hw.subject) {
+                    <div class="hw-subject">{{ hw.subject }}</div>
+                  }
                   <div class="hw-title">{{ hw.title }}</div>
                 </div>
-                <div class="due-date" [class.overdue]="isOverdue(hw.due_date)">
-                  <mat-icon style="font-size:13px;width:13px;height:13px">event</mat-icon>
-                  {{ hw.due_date | date:'d MMM' }}
-                </div>
               </div>
+
               @if (hw.description) {
                 <p class="hw-desc">{{ hw.description }}</p>
               }
-              @if (hw.assigned_by) {
-                <div class="hw-teacher">By {{ hw.assigned_by }}</div>
-              }
+
+              <div class="hw-footer">
+                @if (hw.assigned_by) {
+                  <span class="hw-teacher"><i class="ti ti-user"></i> {{ hw.assigned_by }}</span>
+                }
+                <span class="due-badge" [class]="dueBadgeClass(hw.due_date)">
+                  <i class="ti ti-calendar"></i>
+                  {{ hw.due_date | date:'d MMM' }}
+                  {{ isOverdue(hw.due_date) && filter() !== 'past' ? ' · Overdue' : '' }}
+                </span>
+              </div>
+
             </div>
           }
         </div>
@@ -50,20 +71,66 @@ import { ParentStateService } from './parent-state.service';
     </div>
   `,
   styles: [`
-    .page { padding: 16px; }
-    .page-title { font-size: 18px; font-weight: 700; color: var(--text-1); margin-bottom: 16px; }
-    .filter-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
-    .ftab { padding: 6px 16px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--bg); font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text-2); &.active { background: var(--primary); border-color: var(--primary); color: #fff; } }
-    .loading { display: flex; justify-content: center; padding: 60px; }
-    .empty { text-align: center; color: var(--text-3); padding: 60px 20px; font-size: 14px; }
+    .page { padding: 16px 16px 24px; background: #F5F7FA; min-height: 100%; }
+    .loading { display: flex; justify-content: center; padding: 80px; }
+
+    /* ── Filter ── */
+    .filter-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+    .ftab {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px;
+      padding: 8px 10px; border-radius: 12px; border: 1.5px solid #EAECF0;
+      background: #fff; font-size: 12px; font-weight: 600; color: #667085;
+      cursor: pointer; transition: all .15s;
+      i { font-size: 14px; }
+      &.active { background: #4F46E5; border-color: #4F46E5; color: #fff; }
+    }
+
+    /* ── Empty ── */
+    .empty-state { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 80px 24px; text-align: center; }
+    .empty-icon { font-size: 48px; }
+    .empty-title { font-size: 16px; font-weight: 700; color: #1D2939; }
+    .empty-sub { font-size: 13px; color: #98A2B3; line-height: 1.5; }
+
+    /* ── HW list ── */
     .hw-list { display: flex; flex-direction: column; gap: 10px; }
-    .hw-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 14px; &.overdue { border-color: var(--red); } }
-    .hw-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
-    .subject-tag { font-size: 10px; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; display: block; }
-    .hw-title { font-size: 14px; font-weight: 700; color: var(--text-1); }
-    .due-date { display: flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 600; color: var(--text-3); white-space: nowrap; &.overdue { color: var(--red); } }
-    .hw-desc { font-size: 13px; color: var(--text-2); line-height: 1.5; margin: 0 0 8px; }
-    .hw-teacher { font-size: 11px; color: var(--text-4); }
+    .hw-card {
+      background: #fff; border: 1.5px solid #EAECF0; border-radius: 16px;
+      padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.04);
+      transition: border-color .15s;
+      &.overdue { border-color: #FECACA; }
+    }
+
+    /* ── Top row ── */
+    .hw-top { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+    .hw-icon-wrap {
+      width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 18px;
+    }
+    .subject-indigo  { background: #EEF2FF; color: #4F46E5; }
+    .subject-emerald { background: #ECFDF5; color: #059669; }
+    .subject-amber   { background: #FFFBEB; color: #D97706; }
+    .subject-rose    { background: #FFF1F2; color: #E11D48; }
+    .subject-sky     { background: #F0F9FF; color: #0284C7; }
+    .subject-purple  { background: #FDF4FF; color: #7C3AED; }
+
+    .hw-meta { flex: 1; min-width: 0; }
+    .hw-subject { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #4F46E5; margin-bottom: 3px; }
+    .hw-title { font-size: 14px; font-weight: 700; color: #1D2939; }
+
+    .hw-desc { font-size: 13px; color: #667085; line-height: 1.55; margin: 0 0 12px; }
+
+    /* ── Footer ── */
+    .hw-footer { display: flex; align-items: center; justify-content: space-between; }
+    .hw-teacher { font-size: 11px; color: #98A2B3; display: flex; align-items: center; gap: 3px; i { font-size: 13px; } }
+    .due-badge {
+      display: flex; align-items: center; gap: 4px;
+      font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px;
+      i { font-size: 12px; }
+    }
+    .due-normal { background: #EEF2FF; color: #4338CA; }
+    .due-soon   { background: #FFFBEB; color: #D97706; }
+    .due-overdue{ background: #FEF2F2; color: #DC2626; }
+    .due-past   { background: #F9FAFB; color: #98A2B3; }
   `],
 })
 export class ParentHomeworkComponent implements OnInit {
@@ -93,4 +160,21 @@ export class ParentHomeworkComponent implements OnInit {
   }
 
   isOverdue(due: string) { return due < this.today; }
+
+  subjectColor(subject: string): string {
+    const map: Record<string, string> = {
+      Math:     'subject-indigo',  Maths: 'subject-indigo',
+      English:  'subject-emerald', Science: 'subject-sky',
+      Hindi:    'subject-rose',    Art: 'subject-purple',
+    };
+    const key = Object.keys(map).find(k => subject?.toLowerCase().includes(k.toLowerCase()));
+    return key ? map[key] : 'subject-amber';
+  }
+
+  dueBadgeClass(due: string): string {
+    if (this.filter() === 'past') return 'due-past';
+    if (due < this.today) return 'due-overdue';
+    const diff = (new Date(due).getTime() - new Date(this.today).getTime()) / 86400000;
+    return diff <= 2 ? 'due-soon' : 'due-normal';
+  }
 }

@@ -34,8 +34,10 @@ export interface CheckOutDto {
 }
 
 export interface BulkMarkDto {
-  date?:    string;           // ISO date, defaults to today
-  records:  {
+  date?:     string;          // ISO date, defaults to today
+  class_id?: string;          // shorthand: mark all active students in class
+  status?:   AttendanceStatus;
+  records?:  {
     student_id: string;
     status:     AttendanceStatus;
     notes?:     string;

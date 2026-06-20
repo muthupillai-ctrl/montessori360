@@ -1,5 +1,4 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ApiService } from '../../core/services/api.service';
 import { ParentStateService } from './parent-state.service';
@@ -11,120 +10,147 @@ function localYearMonth(d: Date): string {
 @Component({
   selector: 'app-parent-attendance',
   standalone: true,
-  imports: [MatIconModule, MatProgressSpinnerModule],
+  imports: [MatProgressSpinnerModule],
   template: `
     <div class="page">
 
+      <!-- Month nav -->
       <div class="month-nav">
         <button class="nav-btn" (click)="changeMonth(-1)">
-          <mat-icon>chevron_left</mat-icon>
+          <i class="ti ti-chevron-left"></i>
         </button>
         <span class="month-label">{{ monthLabel() }}</span>
         <button class="nav-btn" (click)="changeMonth(1)">
-          <mat-icon>chevron_right</mat-icon>
+          <i class="ti ti-chevron-right"></i>
         </button>
       </div>
 
       @if (loading()) {
         <div class="loading"><mat-progress-spinner diameter="28" mode="indeterminate"/></div>
       } @else {
+
+        <!-- Summary -->
         <div class="summary-row">
-          <div class="sum-chip present">✓ {{ summary().present }} Present</div>
-          <div class="sum-chip absent">✗ {{ summary().absent }} Absent</div>
-          <div class="sum-chip late">◷ {{ summary().late }} Late</div>
+          <div class="sum-card present">
+            <div class="sum-num">{{ summary().present }}</div>
+            <div class="sum-lbl">Present</div>
+          </div>
+          <div class="sum-card absent">
+            <div class="sum-num">{{ summary().absent }}</div>
+            <div class="sum-lbl">Absent</div>
+          </div>
+          <div class="sum-card late">
+            <div class="sum-num">{{ summary().late }}</div>
+            <div class="sum-lbl">Late</div>
+          </div>
+          <div class="sum-card total">
+            <div class="sum-num">{{ summary().present + summary().absent + summary().late }}</div>
+            <div class="sum-lbl">School Days</div>
+          </div>
         </div>
 
-        <!-- Day-of-week header -->
-        <div class="calendar-grid">
-          @for (d of dayNames; track d) {
-            <div class="dow-cell">{{ d }}</div>
-          }
-          @for (day of calendarDays(); track $index) {
-            <div class="day-cell"
-                 [class.present]="day.status === 'present'"
-                 [class.absent]="day.status === 'absent'"
-                 [class.late]="day.status === 'late'"
-                 [class.empty]="day.dayNum === 0">
-              @if (day.dayNum > 0) {
-                <span class="day-num">{{ day.dayNum }}</span>
-              }
-            </div>
-          }
+        <!-- Calendar -->
+        <div class="cal-card">
+          <div class="calendar-grid">
+            @for (d of dayNames; track d) {
+              <div class="dow-cell">{{ d }}</div>
+            }
+            @for (day of calendarDays(); track $index) {
+              <div class="day-cell"
+                   [class.present]="day.status === 'present'"
+                   [class.absent]="day.status === 'absent'"
+                   [class.late]="day.status === 'late'"
+                   [class.empty]="day.dayNum === 0">
+                @if (day.dayNum > 0) {
+                  <span class="day-num">{{ day.dayNum }}</span>
+                  @if (day.status) {
+                    <span class="day-dot"></span>
+                  }
+                }
+              </div>
+            }
+          </div>
         </div>
 
+        <!-- Legend -->
         <div class="legend">
-          <span class="leg present">Present</span>
-          <span class="leg absent">Absent</span>
-          <span class="leg late">Late</span>
-          <span class="leg unmarked">Unmarked</span>
+          <span class="leg present"><span class="leg-dot"></span>Present</span>
+          <span class="leg absent"><span class="leg-dot"></span>Absent</span>
+          <span class="leg late"><span class="leg-dot"></span>Late</span>
+          <span class="leg unmarked"><span class="leg-dot"></span>No data</span>
         </div>
+
       }
     </div>
   `,
   styles: [`
-    .page { padding: 12px 14px; }
+    .page { padding: 16px 16px 24px; background: #F5F7FA; min-height: 100%; }
 
+    /* ── Month nav ── */
     .month-nav {
       display: flex; align-items: center; justify-content: space-between;
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 10px; padding: 4px 8px; margin-bottom: 12px;
+      background: #fff; border: 1px solid #EAECF0;
+      border-radius: 14px; padding: 6px 10px; margin-bottom: 14px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.05);
     }
     .nav-btn {
-      background: none; border: none; cursor: pointer;
-      color: var(--text-2); display: flex; align-items: center;
-      padding: 6px; border-radius: 6px;
-      &:hover { background: var(--bg); }
-      mat-icon { font-size: 20px; width: 20px; height: 20px; }
-    }
-    .month-label { font-size: 14px; font-weight: 700; color: var(--text-1); }
-
-    .loading { display: flex; justify-content: center; padding: 40px; }
-
-    .summary-row { display: flex; gap: 6px; margin-bottom: 10px; }
-    .sum-chip {
-      flex: 1; text-align: center; padding: 6px 2px;
-      border-radius: 8px; font-size: 11px; font-weight: 700;
-      &.present { background: var(--green-light); color: #065F46; }
-      &.absent  { background: var(--red-light);   color: var(--red); }
-      &.late    { background: #FFF7ED;             color: #C2410C; }
-    }
-
-    .calendar-grid {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 3px;
-      margin-bottom: 10px;
-    }
-
-    .dow-cell {
-      height: 22px; display: flex; align-items: center; justify-content: center;
-      font-size: 10px; font-weight: 600; color: var(--text-4);
-      text-transform: uppercase;
-    }
-
-    .day-cell {
-      height: 34px; border-radius: 6px;
+      width: 34px; height: 34px; border-radius: 9px;
+      background: #F5F7FA; border: 1px solid #EAECF0; cursor: pointer;
+      color: #667085; font-size: 16px;
       display: flex; align-items: center; justify-content: center;
-      background: var(--bg);
-      &.present { background: var(--green-light); }
-      &.absent  { background: var(--red-light); }
-      &.late    { background: #FFF7ED; }
-      &.empty   { opacity: 0; pointer-events: none; }
+      transition: background .15s;
+      &:hover { background: #EEF2FF; color: #4F46E5; }
     }
-    .day-num { font-size: 11px; font-weight: 600; color: var(--text-2); }
-    .day-cell.present .day-num { color: #065F46; }
-    .day-cell.absent  .day-num { color: #991B1B; }
-    .day-cell.late    .day-num { color: #C2410C; }
+    .month-label { font-size: 15px; font-weight: 700; color: #1D2939; }
 
-    .legend { display: flex; gap: 10px; flex-wrap: wrap; }
-    .leg {
-      font-size: 11px; color: var(--text-3);
-      display: flex; align-items: center; gap: 4px;
-      &.present::before { content: '●'; color: #065F46; }
-      &.absent::before  { content: '●'; color: var(--red); }
-      &.late::before    { content: '●'; color: #C2410C; }
-      &.unmarked::before { content: '●'; color: var(--border); }
+    /* ── Summary ── */
+    .summary-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 14px; }
+    .sum-card {
+      border-radius: 12px; padding: 12px 8px; text-align: center;
+      border: 1px solid transparent;
     }
+    .sum-num { font-size: 22px; font-weight: 800; line-height: 1; }
+    .sum-lbl { font-size: 10px; font-weight: 600; margin-top: 4px; text-transform: uppercase; letter-spacing: .04em; }
+    .sum-card.present { background: #ECFDF5; border-color: #A7F3D0; .sum-num { color: #059669; } .sum-lbl { color: #059669; } }
+    .sum-card.absent  { background: #FEF2F2; border-color: #FECACA; .sum-num { color: #DC2626; } .sum-lbl { color: #DC2626; } }
+    .sum-card.late    { background: #FFFBEB; border-color: #FDE68A; .sum-num { color: #D97706; } .sum-lbl { color: #D97706; } }
+    .sum-card.total   { background: #EEF2FF; border-color: #C7D2FE; .sum-num { color: #4F46E5; } .sum-lbl { color: #4F46E5; } }
+
+    /* ── Calendar ── */
+    .cal-card { background: #fff; border-radius: 16px; border: 1px solid #EAECF0; padding: 14px; box-shadow: 0 1px 6px rgba(0,0,0,.05); margin-bottom: 14px; }
+    .calendar-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; }
+    .dow-cell {
+      height: 24px; display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700; color: #98A2B3; text-transform: uppercase;
+    }
+    .day-cell {
+      height: 38px; border-radius: 8px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 2px; background: #F9FAFB;
+      &.empty { opacity: 0; pointer-events: none; }
+      &.present { background: #ECFDF5; }
+      &.absent  { background: #FEF2F2; }
+      &.late    { background: #FFFBEB; }
+    }
+    .day-num { font-size: 12px; font-weight: 600; color: #667085; line-height: 1; }
+    .day-cell.present .day-num { color: #059669; }
+    .day-cell.absent  .day-num { color: #DC2626; }
+    .day-cell.late    .day-num { color: #D97706; }
+    .day-dot { width: 4px; height: 4px; border-radius: 50%; }
+    .day-cell.present .day-dot { background: #059669; }
+    .day-cell.absent  .day-dot { background: #DC2626; }
+    .day-cell.late    .day-dot { background: #D97706; }
+
+    /* ── Legend ── */
+    .legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 2px 4px; }
+    .leg { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: #667085; }
+    .leg-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .leg.present .leg-dot { background: #059669; }
+    .leg.absent  .leg-dot { background: #DC2626; }
+    .leg.late    .leg-dot { background: #D97706; }
+    .leg.unmarked .leg-dot { background: #D0D5DD; }
+
+    .loading { display: flex; justify-content: center; padding: 60px; }
   `],
 })
 export class ParentAttendanceComponent implements OnInit {
@@ -135,7 +161,6 @@ export class ParentAttendanceComponent implements OnInit {
 
   private _now = new Date();
   currentMonth = signal<string>(localYearMonth(this._now));
-
   dayNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
   summary = computed(() => ({
@@ -177,7 +202,6 @@ export class ParentAttendanceComponent implements OnInit {
 
   changeMonth(dir: number) {
     const [y, m] = this.currentMonth().split('-').map(Number);
-    // Use local date arithmetic — avoid toISOString() which converts to UTC and can shift month
     const d = new Date(y, m - 1 + dir, 1);
     this.currentMonth.set(localYearMonth(d));
     this.load();

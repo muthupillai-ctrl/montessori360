@@ -7,6 +7,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { DatePipe, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
 import { MatDialog } from '@angular/material/dialog';
 import { NewMessageDialogComponent } from './new-message-dialog.component';
@@ -747,8 +748,9 @@ import type { Announcement, Conversation } from '../../core/models';
 export class CommunicationComponent implements OnInit {
   private api    = inject(ApiService);
   private dialog = inject(MatDialog);
-  private snack = inject(MatSnackBar);
-  private auth  = inject(AuthService);
+  private snack  = inject(MatSnackBar);
+  private auth   = inject(AuthService);
+  private route  = inject(ActivatedRoute);
 
   isAdmin = this.auth.isAdmin;
   private fb    = inject(FormBuilder);
@@ -799,8 +801,16 @@ export class CommunicationComponent implements OnInit {
 
   ngOnInit() {
     this.loadAnnouncements();
+
+    // Honor ?tab=N from notification panel deep links
+    const tabParam = Number(this.route.snapshot.queryParamMap.get('tab') ?? -1);
+    if (tabParam >= 0) {
+      this.selectedTabIndex.set(tabParam);
+      if (tabParam === 1) this.loadCirculars();
+      if (tabParam === 2) this.loadConversations();
+    }
+
     this.loadUnreadCount();
-    // Store current user id for sent/received detection
   }
 
   loadUnreadCount() {
@@ -808,8 +818,9 @@ export class CommunicationComponent implements OnInit {
       next: (res: any) => {
         const count = res.data?.unread_count ?? res.data?.count ?? 0;
         this.unreadCount.set(count);
-        // Auto-switch to Messages tab if there are unread messages
-        if (count > 0 && this.selectedTabIndex() !== 2) {
+        // Auto-switch to Messages tab only if user didn't arrive via a deep link
+        const tabParam = Number(this.route.snapshot.queryParamMap.get('tab') ?? -1);
+        if (count > 0 && this.selectedTabIndex() !== 2 && tabParam < 0) {
           this.selectedTabIndex.set(2);
           this.loadConversations();
         }

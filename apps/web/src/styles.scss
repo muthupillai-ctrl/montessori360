@@ -353,3 +353,129 @@ body {
   border-color: var(--border) !important;
   margin: 4px 0 !important;
 }
+
+// ── Role colour tokens ─────────────────────────────────────────────────────────
+// Each role gets a unique sidebar accent. Used in shell.component.ts via
+// CSS custom properties set on the <aside> element.
+:root {
+  // principal / owner — deep blue (authority, trust)
+  --role-principal-sidebar:  #0F2D52;
+  --role-principal-accent:   #1D6FB8;
+  --role-principal-pill-bg:  #0D2440;
+  --role-principal-pill-text:#B5D4F4;
+  --role-principal-item-active-bg:  rgba(29,111,184,.18);
+  --role-principal-item-active-text:#7EC8F5;
+
+  // teacher — forest green (growth, nurture)
+  --role-teacher-sidebar:    #0D2E1A;
+  --role-teacher-accent:     #1D9E75;
+  --role-teacher-pill-bg:    #0B2617;
+  --role-teacher-pill-text:  #9FE1CB;
+  --role-teacher-item-active-bg:  rgba(29,158,117,.18);
+  --role-teacher-item-active-text:#5DCAA5;
+
+  // assistant_teacher — slightly lighter green
+  --role-assistant_teacher-sidebar:  #0D2E1A;
+  --role-assistant_teacher-accent:   #1D9E75;
+  --role-assistant_teacher-pill-bg:  #0B2617;
+  --role-assistant_teacher-pill-text:#9FE1CB;
+  --role-assistant_teacher-item-active-bg:  rgba(29,158,117,.18);
+  --role-assistant_teacher-item-active-text:#5DCAA5;
+
+  // accountant — warm amber (finance)
+  --role-accountant-sidebar:  #2A1F08;
+  --role-accountant-accent:   #BA7517;
+  --role-accountant-pill-bg:  #231A07;
+  --role-accountant-pill-text:#FAC775;
+  --role-accountant-item-active-bg:  rgba(186,117,23,.18);
+  --role-accountant-item-active-text:#EF9F27;
+
+  // admission_staff — purple (welcoming)
+  --role-admission_staff-sidebar:  #1A1040;
+  --role-admission_staff-accent:   #534AB7;
+  --role-admission_staff-pill-bg:  #160D36;
+  --role-admission_staff-pill-text:#CECBF6;
+  --role-admission_staff-item-active-bg:  rgba(83,74,183,.18);
+  --role-admission_staff-item-active-text:#AFA9EC;
+
+  // driver — teal (transport)
+  --role-driver-sidebar:  #082A2A;
+  --role-driver-accent:   #0F6E56;
+  --role-driver-pill-bg:  #062222;
+  --role-driver-pill-text:#9FE1CB;
+  --role-driver-item-active-bg:  rgba(15,110,86,.18);
+  --role-driver-item-active-text:#5DCAA5;
+
+  // support — slate (neutral)
+  --role-support-sidebar:  #1A1C22;
+  --role-support-accent:   #5F5E5A;
+  --role-support-pill-bg:  #14161B;
+  --role-support-pill-text:#D3D1C7;
+  --role-support-item-active-bg:  rgba(95,94,90,.18);
+  --role-support-item-active-text:#B4B2A9;
+}
+
+// ── Search input visibility fix ────────────────────────────────────────────────
+// Ensures the topbar search box text and placeholder are always visible
+.tb-search input {
+  color: var(--text) !important;
+  font-size: 13px;
+
+  &::placeholder {
+    color: var(--text-4) !important;
+    opacity: 1;
+  }
+}
+
+// ── Tabler icon baseline alignment helper ──────────────────────────────────────
+.ti { line-height: 1; vertical-align: middle; }
+
+// ── Notification panel width ───────────────────────────────────────────────────
+.notif-menu .mat-mdc-menu-panel { min-width: 280px !important; max-width: 320px !important; }
+
+// ── Search dropdown panel ──────────────────────────────────────────────────────
+.search-menu .mat-mdc-menu-panel {
+  min-width: 260px !important;
+  max-width: 300px !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+.search-menu .mat-mdc-menu-content { padding: 0 !important; }
+
+.sm-search-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; border-bottom: 1px solid #F2F4F7;
+}
+.sm-search-icon { font-size: 16px; color: #98A2B3; flex-shrink: 0; }
+.sm-search-input {
+  flex: 1; border: none; outline: none; background: transparent;
+  font-size: 13px; font-family: inherit; color: #1D2939;
+  &::placeholder { color: #C0C8D4; }
+}
+.sm-search-go {
+  width: 26px; height: 26px; border-radius: 7px; border: none;
+  background: #4F46E5; color: #fff; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; flex-shrink: 0;
+}
+
+.sm-section-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: #98A2B3;
+  padding: 10px 14px 4px;
+}
+
+.sm-item {
+  display: flex !important; align-items: center !important; gap: 9px !important;
+  font-size: 13px !important; color: #344054 !important;
+  i { font-size: 16px; color: #667085; }
+}
+
+.sm-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+}
+.sm-red    { background: #DC2626; }
+.sm-amber  { background: #D97706; }
+.sm-blue   { background: #2563EB; }
+.sm-green  { background: #059669; }
+.sm-purple { background: #7C3AED; }

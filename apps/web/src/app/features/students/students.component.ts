@@ -17,6 +17,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { DatePipe, TitleCasePipe } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { debounceTime, distinctUntilChanged, Subject } from 'rxjs';
+import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { EnrolStudentDialogComponent } from './enrol-student-dialog.component';
@@ -414,6 +415,7 @@ export class StudentsComponent implements OnInit {
   private snack  = inject(MatSnackBar);
   private dialog = inject(MatDialog);
   private fb     = inject(FormBuilder);
+  private route  = inject(ActivatedRoute);
 
   canManage = () => ['owner', 'principal', 'admission_staff'].includes(this.auth.user()?.role ?? '');
 
@@ -443,6 +445,8 @@ export class StudentsComponent implements OnInit {
   });
 
   ngOnInit() {
+    const q = this.route.snapshot.queryParamMap.get('search');
+    if (q) this.searchTerm.set(q);
     this.loadClasses();
     this.loadStudents();
     this.loadCounts();

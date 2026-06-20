@@ -236,7 +236,7 @@ import type { SchoolClass, ApiResponse } from '../../core/models';
                       <div class="field-error">Valid phone required</div>
                     }
                     <div class="field-group">
-                      <label class="field-label">Email <span style="font-size:10px;color:var(--text-4);font-weight:400">(for parent portal)</span></label>
+                      <label class="field-label">Email </label>
                       <input class="field-input" type="email" formControlName="email"
                              placeholder="parent@email.com"
                              [class.err]="ctrl.get('email')?.invalid && ctrl.get('email')?.touched">

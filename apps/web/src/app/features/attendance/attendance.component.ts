@@ -432,10 +432,9 @@ export class AttendanceComponent implements OnInit {
 
   mark(student: RosterStudent, status: string) {
     if (this.savingId()) return;
-    // Optimistic update
     const prev = student.status;
-    student.status = status as any;
     this.savingId.set(student.id);
+    this.roster.update(list => list.map(s => s.id === student.id ? { ...s, status: status as any } : s));
 
     this.api.post<any>('/attendance/quick-mark', {
       student_id: student.id,
@@ -444,7 +443,7 @@ export class AttendanceComponent implements OnInit {
     }).subscribe({
       next: () => this.savingId.set(null),
       error: () => {
-        student.status = prev; // rollback
+        this.roster.update(list => list.map(s => s.id === student.id ? { ...s, status: prev } : s));
         this.savingId.set(null);
         this.snack.open('Failed to mark attendance', 'OK', { duration: 2500 });
       },
@@ -467,7 +466,11 @@ export class AttendanceComponent implements OnInit {
         this.snack.open((res.data?.count ?? res.count ?? '') + ' students marked present', 'OK', { duration: 3000 });
         this.loadRoster();
       },
-      error: () => { this.marking.set(false); this.snack.open('Error', 'OK', { duration: 2500 }); },
+      error: (err: any) => {
+        this.marking.set(false);
+        const msg = err?.error?.error?.message ?? err?.error?.message ?? err?.message ?? 'Unknown error';
+        this.snack.open('Error: ' + msg, 'OK', { duration: 5000 });
+      },
     });
   }
 

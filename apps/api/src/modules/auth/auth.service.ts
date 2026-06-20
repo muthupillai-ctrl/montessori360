@@ -270,6 +270,27 @@ class AuthService {
     return { id: pa.id, inviteToken: token };
   }
 
+  async togglePortalAccount(schema: string, accountId: string, isActive: boolean): Promise<void> {
+    const rows = await tenantQuery<{ id: string }>(schema,
+      `UPDATE parent_accounts SET is_active = $1, updated_at = now() WHERE id = $2 RETURNING id`,
+      [isActive, accountId]
+    );
+    if (!rows.length) throw AppError.notFound('Portal account');
+  }
+
+  async resendParentInvite(schema: string, accountId: string): Promise<string> {
+    const [pa] = await tenantQuery<{ id: string; email: string; first_name: string; last_name: string }>(
+      schema,
+      `SELECT id, email, first_name, last_name FROM parent_accounts WHERE id = $1`,
+      [accountId]
+    );
+    if (!pa) throw AppError.notFound('Portal account');
+
+    const token = uuidv4();
+    await cacheSet(`invite:${token}`, { parentId: pa.id, tenantSchema: schema }, 72 * 3600);
+    return token;
+  }
+
   async setPasswordFromInvite(token: string, newPassword: string): Promise<void> {
     const stored = await cacheGet<{ parentId: string; tenantSchema: string }>(`invite:${token}`);
     if (!stored) throw AppError.badRequest('Invite link has expired or is invalid');
