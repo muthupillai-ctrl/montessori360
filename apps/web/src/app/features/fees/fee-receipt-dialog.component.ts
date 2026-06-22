@@ -101,7 +101,12 @@ import type { FeeInvoice } from '../../core/models';
             </div>
             @if (+invoice.discount > 0) {
               <div class="total-row discount">
-                <span>Discount</span>
+                <span>
+                  Discount
+                  @if (invoice.discount_note) {
+                    <span class="discount-label">{{ invoice.discount_note }}</span>
+                  }
+                </span>
                 <span>−₹{{ invoice.discount | number:'1.2-2' }}</span>
               </div>
             }
@@ -263,6 +268,12 @@ import type { FeeInvoice } from '../../core/models';
 
     /* Totals */
     .totals-section { display: flex; flex-direction: column; gap: 5px; }
+    .discount-label {
+      display: inline-block; margin-left: 6px;
+      font-size: 10px; font-weight: 600; color: #059669;
+      background: #DCFCE7; border-radius: 4px; padding: 1px 6px;
+      vertical-align: middle;
+    }
     .total-row {
       display: flex; justify-content: space-between;
       font-size: 12.5px; color: #374151;
@@ -342,8 +353,10 @@ export class FeeReceiptDialogComponent implements OnInit {
   private api       = inject(ApiService);
   private auth      = inject(AuthService);
   private dialogRef = inject(MatDialogRef<FeeReceiptDialogComponent>);
+  private raw: FeeInvoice = inject(MAT_DIALOG_DATA);
 
-  invoice: FeeInvoice = inject(MAT_DIALOG_DATA);
+  inv    = signal<FeeInvoice>(this.raw);
+  get invoice() { return this.inv(); }
 
   schoolName    = signal('Montessori School');
   schoolInitials = signal('MS');
@@ -351,31 +364,17 @@ export class FeeReceiptDialogComponent implements OnInit {
   lineItems = signal<{ name: string; amount: number }[]>([]);
 
   ngOnInit() {
-    // Parse line items
-    try {
-      const items = typeof this.invoice.line_items === 'string'
-        ? JSON.parse(this.invoice.line_items)
-        : (this.invoice.line_items ?? []);
-      this.lineItems.set(items);
-    } catch { this.lineItems.set([]); }
+    // Parse line items from initial data
+    this.parseLineItems(this.raw);
 
-    // Load full invoice with payments if not already loaded
-    if (!this.invoice.payments) {
-      this.api.get<any>('/fees/invoices/' + this.invoice.id).subscribe({
-        next: (res: any) => {
-          const inv = res.data ?? res;
-          if (inv.payments) this.invoice = { ...this.invoice, ...inv };
-          if (inv.line_items) {
-            try {
-              const items = typeof inv.line_items === 'string'
-                ? JSON.parse(inv.line_items)
-                : inv.line_items;
-              this.lineItems.set(items);
-            } catch {}
-          }
-        },
-      });
-    }
+    // Always re-fetch to pick up discount_note, payments, and latest status
+    this.api.get<any>('/fees/invoices/' + this.raw.id).subscribe({
+      next: (res: any) => {
+        const fetched = res.data ?? res;
+        this.inv.set({ ...this.raw, ...fetched });
+        this.parseLineItems(fetched);
+      },
+    });
 
     // Use tenant code from auth service as school name
     const code = this.auth.user()?.tenantId ?? '';
@@ -384,6 +383,15 @@ export class FeeReceiptDialogComponent implements OnInit {
     this.schoolInitials.set(
       name.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
     );
+  }
+
+  private parseLineItems(inv: any) {
+    try {
+      const items = typeof inv.line_items === 'string'
+        ? JSON.parse(inv.line_items)
+        : (inv.line_items ?? []);
+      if (items.length) this.lineItems.set(items);
+    } catch {}
   }
 
   print() {

@@ -2,6 +2,7 @@ import { PoolClient } from 'pg';
 import { tenantQuery, tenantTransaction } from '../../config/database.js';
 import { cacheSet, cacheGet, cacheDel, cacheDelPattern } from '../../config/redis.js';
 import { AppError } from '../../middleware/errorHandler.js';
+import { concessionsService } from './concessions.service.js';
 import type {
   FeeStructureRow, FeeInvoiceRow,
   CreateFeeStructureDto, CreateInvoiceDto, BulkCreateInvoicesDto,
@@ -33,7 +34,18 @@ class FeesService {
 
   // ── Fee structures ────────────────────────────────────────────────────────
 
+  private structureColsEnsured = new Set<string>();
+  private async ensureStructureCols(schema: string): Promise<void> {
+    if (this.structureColsEnsured.has(schema)) return;
+    await tenantQuery(schema,
+      `ALTER TABLE ${schema}.fee_structures
+         ADD COLUMN IF NOT EXISTS allow_multiple BOOLEAN NOT NULL DEFAULT false`
+    );
+    this.structureColsEnsured.add(schema);
+  }
+
   async listFeeStructures(schema: string): Promise<FeeStructureRow[]> {
+    await this.ensureStructureCols(schema);
     const cacheKey = `${schema}:fee_structures`;
     const cached = await cacheGet<FeeStructureRow[]>(cacheKey);
     if (cached) return cached;
@@ -57,17 +69,19 @@ class FeesService {
   }
 
   async createFeeStructure(schema: string, dto: CreateFeeStructureDto, createdBy: string): Promise<FeeStructureRow> {
+    await this.ensureStructureCols(schema);
     return tenantTransaction(schema, async (client) => {
       const { rows } = await client.query(
         `INSERT INTO ${schema}.fee_structures
-           (name, academic_year, billing_cycle, heads, applies_to, class_ids)
-         VALUES ($1, $2, $3, $4, $5, $6)
+           (name, academic_year, billing_cycle, heads, applies_to, class_ids, allow_multiple)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING *`,
         [
           dto.name, dto.academic_year, dto.billing_cycle,
           JSON.stringify(dto.heads),
           dto.applies_to ?? 'all',
           dto.class_ids ?? [],
+          dto.allow_multiple ?? false,
         ]
       );
       await this.auditLog(schema, client, createdBy, 'CREATE', 'fee_structures', rows[0].id);
@@ -87,8 +101,9 @@ class FeesService {
       if (dto.name          !== undefined) { fields.push(`name = $${i++}`);          values.push(dto.name); }
       if (dto.billing_cycle !== undefined) { fields.push(`billing_cycle = $${i++}`); values.push(dto.billing_cycle); }
       if (dto.heads         !== undefined) { fields.push(`heads = $${i++}`);         values.push(JSON.stringify(dto.heads)); }
-      if (dto.applies_to    !== undefined) { fields.push(`applies_to = $${i++}`);    values.push(dto.applies_to); }
-      if (dto.class_ids     !== undefined) { fields.push(`class_ids = $${i++}`);     values.push(dto.class_ids); }
+      if (dto.applies_to     !== undefined) { fields.push(`applies_to = $${i++}`);     values.push(dto.applies_to); }
+      if (dto.class_ids      !== undefined) { fields.push(`class_ids = $${i++}`);      values.push(dto.class_ids); }
+      if (dto.allow_multiple !== undefined) { fields.push(`allow_multiple = $${i++}`); values.push(dto.allow_multiple); }
 
       if (!fields.length) throw AppError.badRequest('No fields to update');
       fields.push(`updated_at = now()`);
@@ -130,6 +145,7 @@ class FeesService {
   // ── Invoices ──────────────────────────────────────────────────────────────
 
   async listInvoices(schema: string, filters: InvoiceFilters): Promise<PaginatedResponse<FeeInvoiceRow>> {
+    await this.ensureDiscountCols(schema);
     const { student_id, class_id, status, due_date_from, due_date_to, billing_period, page = 1, limit = 20 } = filters;
     const offset = (page - 1) * limit;
 
@@ -182,6 +198,7 @@ class FeesService {
   }
 
   async getInvoice(schema: string, id: string): Promise<FeeInvoiceRow> {
+    await this.ensureDiscountCols(schema);
     const [row] = await tenantQuery<FeeInvoiceRow>(
       schema,
       `SELECT i.*,
@@ -198,7 +215,32 @@ class FeesService {
     return row;
   }
 
+  private discountColsEnsured = new Set<string>();
+  private async ensureDiscountCols(schema: string): Promise<void> {
+    if (this.discountColsEnsured.has(schema)) return;
+    await tenantQuery(schema, `
+      ALTER TABLE ${schema}.fee_invoices
+        ADD COLUMN IF NOT EXISTS discount_note TEXT,
+        ADD COLUMN IF NOT EXISTS concession_id UUID
+          REFERENCES ${schema}.fee_concessions(id) ON DELETE SET NULL
+    `);
+    // Drop the unique constraint/index so allow_multiple structures can have
+    // multiple invoices per student/period. App-level logic enforces the duplicate
+    // check for structures where allow_multiple = false.
+    // Try as table CONSTRAINT first, then as a standalone UNIQUE INDEX — the
+    // provisioning function may have used either form.
+    await tenantQuery(schema, `
+      ALTER TABLE ${schema}.fee_invoices
+        DROP CONSTRAINT IF EXISTS "uq_tenant_${schema}_invoice_structure"
+    `);
+    await tenantQuery(schema, `
+      DROP INDEX IF EXISTS "${schema}"."uq_tenant_${schema}_invoice_structure"
+    `);
+    this.discountColsEnsured.add(schema);
+  }
+
   async createInvoice(schema: string, dto: CreateInvoiceDto, createdBy: string): Promise<FeeInvoiceRow> {
+    await this.ensureDiscountCols(schema);
     return tenantTransaction(schema, async (client) => {
 
       // Verify student
@@ -213,17 +255,25 @@ class FeesService {
         dto.fee_structure_id ? 'fee_structure' : 'adhoc'
       );
 
-      // Duplicate check per type
+      // Duplicate check per type (skipped when fee structure has allow_multiple = true)
       if (invoiceType === 'fee_structure' && dto.fee_structure_id) {
-        const { rows: [dup] } = await client.query(
-          `SELECT invoice_no FROM ${schema}.fee_invoices
-           WHERE student_id = $1 AND billing_period = $2
-             AND fee_structure_id = $3 AND status != 'waived' LIMIT 1`,
-          [dto.student_id, dto.billing_period, dto.fee_structure_id]
+        const [structure] = await tenantQuery<{ allow_multiple: boolean }>(
+          schema,
+          `SELECT allow_multiple FROM ${schema}.fee_structures WHERE id = $1`,
+          [dto.fee_structure_id]
         );
-        if (dup) throw AppError.conflict(
-          `Invoice ${dup.invoice_no} already exists for this student, period and fee structure`
-        );
+        if (!structure?.allow_multiple) {
+          const { rows: [dup] } = await client.query(
+            `SELECT invoice_no FROM ${schema}.fee_invoices
+             WHERE student_id = $1 AND billing_period = $2
+               AND fee_structure_id = $3 AND status != 'waived' LIMIT 1`,
+            [dto.student_id, dto.billing_period, dto.fee_structure_id]
+          );
+          if (dup) throw AppError.conflict(
+            `Invoice ${dup.invoice_no} already exists for this student and period. ` +
+            `To create multiple invoices from the same fee structure, edit the fee structure and enable "Allow Multiple Invoices".`
+          );
+        }
       }
 
       if (invoiceType === 'transport') {
@@ -243,11 +293,15 @@ class FeesService {
       const hasTransport = lineItems.some(i => i.name === 'Transport Fee');
       if (!hasTransport) {
         try {
-          // Check if a transport invoice already exists for this student + period
+          // Check if transport was already invoiced for this period (any invoice type)
           const { rows: [existingTransport] } = await client.query(
             `SELECT id FROM ${schema}.fee_invoices
              WHERE student_id = $1 AND billing_period = $2
-               AND invoice_type = 'transport' AND status != 'waived' LIMIT 1`,
+               AND status != 'waived'
+               AND (
+                 invoice_type = 'transport'
+                 OR line_items::text LIKE '%Transport Fee%'
+               ) LIMIT 1`,
             [dto.student_id, dto.billing_period]
           );
 
@@ -268,20 +322,35 @@ class FeesService {
 
       const invoiceNo = await this.nextInvoiceNo(schema, client);
       const subtotal  = lineItems.reduce((sum, item) => sum + item.amount, 0);
-      const discount  = dto.discount ?? 0;
       const tax       = dto.tax ?? 0;
-      const total     = subtotal - discount + tax;
+
+      // Auto-apply student concession if frontend didn't already supply one
+      // Skipped when frontend sends skip_concession: true (user explicitly removed discount)
+      let discount     = dto.discount ?? 0;
+      let discountNote = dto.discount_note ?? null;
+      let concessionId = dto.concession_id ?? null;
+
+      if (!dto.skip_concession && !discountNote) {
+        const conc = await concessionsService.getActiveForStudent(schema, dto.student_id);
+        if (conc) {
+          discount     = concessionsService.calculateDiscount(conc, subtotal);
+          discountNote = `${conc.name} (${conc.discount_type === 'percentage' ? conc.discount_value + '%' : '₹' + conc.discount_value})`;
+          concessionId = conc.id;
+        }
+      }
+
+      const total = subtotal - discount + tax;
 
       const { rows } = await client.query(
         `INSERT INTO ${schema}.fee_invoices
            (invoice_no, student_id, fee_structure_id, invoice_type, billing_period,
-            line_items, subtotal, discount, tax, total, due_date, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+            line_items, subtotal, discount, discount_note, concession_id, tax, total, due_date, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
          RETURNING *`,
         [
           invoiceNo, dto.student_id, dto.fee_structure_id ?? null,
           invoiceType, dto.billing_period, JSON.stringify(lineItems),
-          subtotal, discount, tax, total, dto.due_date, createdBy,
+          subtotal, discount, discountNote, concessionId, tax, total, dto.due_date, createdBy,
         ]
       );
 

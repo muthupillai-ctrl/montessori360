@@ -3,6 +3,7 @@ import { studentsService } from './students.service.js';
 import type { CreateStudentDto, UpdateStudentDto, StudentFilters, AssignClassDto } from './students.types.js';
 import { sendParentInviteEmail } from '../../utils/email.js';
 import { query } from '../../config/database.js';
+import { cacheDel, cacheDelPattern } from '../../config/redis.js';
 import { AppError } from '../../middleware/errorHandler.js';
 
 // ── Students ──────────────────────────────────────────────────────────────────
@@ -11,7 +12,9 @@ export async function listStudents(req: Request, res: Response): Promise<void> {
   const schema = req.user!.tenantSchema;
   const filters = ((req as any).parsedQuery ?? req.query) as StudentFilters;
   const result = await studentsService.list(schema, filters);
-  res.json(result);
+  // Normalise DB column name rfid_card_no → rfid_uid for API consumers
+  const mapped = { ...result, data: result.data.map((s: any) => ({ ...s, rfid_uid: s.rfid_card_no ?? null })) };
+  res.json(mapped);
 }
 
 export async function getStudent(req: Request, res: Response): Promise<void> {
@@ -36,6 +39,35 @@ export async function updateStudent(req: Request, res: Response): Promise<void> 
     req.user!.sub,
   );
   res.json({ data: student, message: 'Student updated successfully' });
+}
+
+export async function assignRfid(req: Request, res: Response): Promise<void> {
+  const schema    = req.user!.tenantSchema;
+  const studentId = req.params['id'] as string;
+  const uid       = (req.body?.uid as string | undefined)?.trim().toUpperCase() ?? null;
+
+  console.log("Inside assign RFID");
+  console.log(`[rfid] ${uid ? `ASSIGN card ${uid}` : 'REMOVE card'} → student ${studentId} (schema: ${schema})`);
+
+  const result = await query<{ first_name: string; last_name: string; rfid_card_no: string | null }>(
+    `UPDATE ${schema}.students SET rfid_card_no = $1 WHERE id = $2
+     RETURNING first_name, last_name, rfid_card_no`,
+    [uid, studentId]
+  );
+
+  if (!result.length) {
+    console.warn(`[rfid] student ${studentId} not found in ${schema}`);
+    res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Student not found' } });
+    return;
+  }
+
+  const s = result[0];
+  console.log(`[rfid] ✅ ${s.first_name} ${s.last_name} → rfid_card_no = ${s.rfid_card_no ?? 'NULL'}`);
+
+  await cacheDel(`${schema}:students:${studentId}`);
+  await cacheDelPattern(`${schema}:students:list:*`);
+
+  res.json({ data: { ok: true, rfid_uid: uid } });
 }
 
 export async function deactivateStudent(req: Request, res: Response): Promise<void> {
@@ -203,7 +235,7 @@ export async function inviteParentByRecord(req: Request, res: Response): Promise
   const inviteLink = `${appUrl}/parent/set-password?token=${inviteToken}`;
   await sendParentInviteEmail(record.email, inviteLink, `${record.first_name} ${record.last_name}`, tenant?.name ?? 'Your school');
 
-  res.status(201).json({ data: { parentAccountId: id, inviteLink, emailSent: true } });
+  res.status(201).json({ data: { parentAccountId: id, inviteToken, inviteLink, emailSent: true } });
 }
 
 export async function resendParentInvite(req: Request, res: Response): Promise<void> {
@@ -227,7 +259,7 @@ export async function resendParentInvite(req: Request, res: Response): Promise<v
   const inviteLink = `${appUrl}/parent/set-password?token=${token}`;
   await sendParentInviteEmail(pa.email, inviteLink, `${pa.first_name} ${pa.last_name}`, tenant?.name ?? 'Your school');
 
-  res.json({ data: { sent: true } });
+  res.json({ data: { sent: true, inviteToken: token } });
 }
 
 export async function togglePortalAccount(req: Request, res: Response): Promise<void> {

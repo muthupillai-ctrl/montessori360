@@ -340,8 +340,8 @@ interface PortalAccount {
                             <mat-icon style="font-size:18px;width:18px;height:18px">more_horiz</mat-icon>
                           </button>
                           <mat-menu #portalMenu="matMenu">
-                            <button mat-menu-item (click)="resendInvite(pa.id)">
-                              <mat-icon>forward_to_inbox</mat-icon> Resend Invite Email
+                            <button mat-menu-item (click)="resendInvite(pa.id, pa.first_name + ' ' + pa.last_name)">
+                              <mat-icon>forward_to_inbox</mat-icon> Resend Invite / Get Link
                             </button>
                             <mat-divider />
                             <button mat-menu-item (click)="toggleAccount(pa.id, pa.is_active)">
@@ -366,6 +366,33 @@ interface PortalAccount {
 
       </mat-tab-group>
     </div>
+
+    <!-- Invite link overlay -->
+    @if (inviteLink()) {
+      <div class="invite-overlay" (click)="inviteLink.set(null)">
+        <div class="invite-dialog" (click)="$event.stopPropagation()">
+          <div class="invite-icon">
+            <mat-icon style="font-size:32px;width:32px;height:32px;color:#2563EB">link</mat-icon>
+          </div>
+          <div class="invite-title">Invite link ready</div>
+          @if (inviteParentName()) {
+            <div class="invite-sub">Share this link with <strong>{{ inviteParentName() }}</strong>. It expires in 72 hours.</div>
+          } @else {
+            <div class="invite-sub">Share this link with the parent. It expires in 72 hours.</div>
+          }
+          <div class="invite-link-box">
+            <span class="invite-link-text">{{ inviteLink() }}</span>
+          </div>
+          <div class="invite-actions">
+            <button class="invite-btn copy" (click)="copyInviteLink()">
+              <mat-icon style="font-size:14px;width:14px;height:14px">content_copy</mat-icon>
+              Copy Link
+            </button>
+            <button class="invite-btn close" (click)="inviteLink.set(null)">Done</button>
+          </div>
+        </div>
+      </div>
+    }
   `,
   styles: [`
     ::ng-deep .parents-tabs .mat-mdc-tab-body-wrapper { padding: 0; }
@@ -498,6 +525,33 @@ interface PortalAccount {
     .portal-active   { background: #DCFCE7; color: #166534; }
     .portal-inactive { background: #FEF9C3; color: #854D0E; }
 
+    /* ── invite link overlay ── */
+    .invite-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.5);
+      display: flex; align-items: center; justify-content: center; z-index: 9999;
+    }
+    .invite-dialog {
+      background: #fff; border-radius: 16px; padding: 32px 28px;
+      width: 100%; max-width: 440px; display: flex; flex-direction: column;
+      align-items: center; gap: 10px; box-shadow: 0 20px 60px rgba(0,0,0,.2);
+    }
+    .invite-icon   { margin-bottom: 4px; }
+    .invite-title  { font-size: 17px; font-weight: 700; color: var(--text-1); }
+    .invite-sub    { font-size: 13px; color: var(--text-2); text-align: center; line-height: 1.5; }
+    .invite-link-box {
+      width: 100%; background: var(--bg); border: 1.5px solid var(--border);
+      border-radius: 8px; padding: 10px 12px; word-break: break-all; margin: 4px 0;
+    }
+    .invite-link-text { font-size: 11px; color: var(--text-2); font-family: monospace; }
+    .invite-actions   { display: flex; gap: 10px; margin-top: 8px; width: 100%; }
+    .invite-btn {
+      flex: 1; padding: 10px; border: none; border-radius: 8px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      &.copy  { background: #2563EB; color: #fff; &:hover { background: #1D4ED8; } }
+      &.close { background: var(--bg); color: var(--text-1); border: 1px solid var(--border); &:hover { background: var(--border); } }
+    }
+
     .text-sm   { font-size: 12px; }
     .text-muted { color: var(--text-2); }
 
@@ -516,13 +570,15 @@ export class ParentsComponent implements OnInit {
   private dialog = inject(MatDialog);
 
   allParents     = signal<ParentRow[]>([]);
-  portalAccounts = signal<PortalAccount[]>([]);
-  studentOptions = signal<StudentOption[]>([]);
-  dirLoading     = signal(true);
-  portalLoading  = signal(false);
-  pickerLoading  = signal(false);
-  selectedTab    = signal(0);
-  showPicker     = false;
+  portalAccounts  = signal<PortalAccount[]>([]);
+  studentOptions  = signal<StudentOption[]>([]);
+  dirLoading      = signal(true);
+  portalLoading   = signal(false);
+  pickerLoading   = signal(false);
+  selectedTab     = signal(0);
+  showPicker      = false;
+  inviteLink      = signal<string | null>(null);
+  inviteParentName = signal('');
 
   dirSearch          = '';
   portalSearch       = '';
@@ -643,7 +699,13 @@ export class ParentsComponent implements OnInit {
 
   inviteParent(p: ParentRow): void {
     this.api.post<any>(`/students/all-parents/${p.parent_record_id}/invite`, {}).subscribe({
-      next: () => {
+      next: (res: any) => {
+        const token = res.data?.inviteToken;
+        if (token) {
+          const link = `${window.location.origin}/parent/set-password?token=${token}`;
+          this.inviteLink.set(link);
+          this.inviteParentName.set(`${p.first_name} ${p.last_name}`);
+        }
         this.snack.open(`Invite sent to ${p.email}`, 'OK', { duration: 3000 });
         this.loadDirectory();
       },
@@ -651,11 +713,27 @@ export class ParentsComponent implements OnInit {
     });
   }
 
-  resendInvite(accountId: string): void {
+  resendInvite(accountId: string, parentName?: string): void {
     this.api.post<any>(`/students/portal-accounts/${accountId}/resend`, {}).subscribe({
-      next: () => this.snack.open('Invite email resent', 'OK', { duration: 3000 }),
+      next: (res: any) => {
+        const token = res.data?.inviteToken;
+        if (token) {
+          const link = `${window.location.origin}/parent/set-password?token=${token}`;
+          this.inviteLink.set(link);
+          this.inviteParentName.set(parentName ?? '');
+        }
+        this.snack.open('Invite email resent', 'OK', { duration: 3000 });
+      },
       error: (err: any) => this.snack.open(err.error?.error?.message ?? 'Failed to resend', 'OK', { duration: 3000 }),
     });
+  }
+
+  copyInviteLink(): void {
+    const link = this.inviteLink();
+    if (!link) return;
+    navigator.clipboard.writeText(link).then(() =>
+      this.snack.open('Link copied to clipboard!', 'OK', { duration: 2000 })
+    );
   }
 
   deleteParent(p: ParentRow): void {

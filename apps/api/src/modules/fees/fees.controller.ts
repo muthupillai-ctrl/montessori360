@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { feesService } from './fees.service.js';
+import { concessionsService } from './concessions.service.js';
 import type {
   CreateFeeStructureDto, CreateInvoiceDto, BulkCreateInvoicesDto,
   RecordPaymentDto, WaiveInvoiceDto, InvoiceFilters, DefaulterFilters,
@@ -124,4 +125,58 @@ export async function deleteInvoice(req: Request, res: Response): Promise<void> 
   } catch (err: any) {
     res.status(400).json({ error: { code: 'BAD_REQUEST', message: err.message } });
   }
+}
+
+// ── Concessions ───────────────────────────────────────────────────────────────
+
+export async function listConcessions(req: Request, res: Response): Promise<void> {
+  const rows = await concessionsService.list(req.user!.tenantSchema);
+  res.json({ data: rows });
+}
+
+export async function createConcession(req: Request, res: Response): Promise<void> {
+  const row = await concessionsService.create(req.user!.tenantSchema, req.body);
+  res.status(201).json({ data: row, message: 'Concession created' });
+}
+
+export async function updateConcession(req: Request, res: Response): Promise<void> {
+  const row = await concessionsService.update(req.user!.tenantSchema, String(req.params['id']), req.body);
+  res.json({ data: row, message: 'Concession updated' });
+}
+
+export async function deleteConcession(req: Request, res: Response): Promise<void> {
+  await concessionsService.remove(req.user!.tenantSchema, String(req.params['id']));
+  res.json({ message: 'Concession deleted' });
+}
+
+export async function listAssignments(req: Request, res: Response): Promise<void> {
+  const rows = await concessionsService.listAssignments(req.user!.tenantSchema, {
+    student_id:    req.query['student_id']    as string,
+    concession_id: req.query['concession_id'] as string,
+    academic_year: req.query['academic_year'] as string,
+  });
+  res.json({ data: rows });
+}
+
+export async function assignConcession(req: Request, res: Response): Promise<void> {
+  const row = await concessionsService.assign(req.user!.tenantSchema, req.body);
+  res.status(201).json({ data: row, message: 'Concession assigned' });
+}
+
+export async function removeAssignment(req: Request, res: Response): Promise<void> {
+  await concessionsService.removeAssignment(req.user!.tenantSchema, String(req.params['id']));
+  res.json({ message: 'Assignment removed' });
+}
+
+export async function listSiblingGroups(req: Request, res: Response): Promise<void> {
+  const groups = await concessionsService.listSiblingGroups(req.user!.tenantSchema);
+  res.json({ data: groups });
+}
+
+export async function bulkSiblingDiscount(req: Request, res: Response): Promise<void> {
+  const result = await concessionsService.bulkAssignSiblingDiscount(req.user!.tenantSchema, {
+    ...req.body,
+    approved_by: req.user!.sub,
+  });
+  res.json({ data: result, message: `${result.assigned} student(s) assigned, ${result.skipped} skipped` });
 }

@@ -66,6 +66,7 @@ import type { StaffMember } from './staff.component';
                     <option value="driver">Driver</option>
                     <option value="support">Support Staff</option>
                     <option value="admission_staff">Admission Staff</option>
+                    <option value="rfid_admin">RFID Admin</option>
                     @if (isOwner()) {
                       <option value="principal">Principal</option>
                     }

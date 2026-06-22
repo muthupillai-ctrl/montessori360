@@ -193,6 +193,12 @@ export const routes: Routes = [
         canActivate: [roleGuard],
         data: { roles: [...ADMIN, 'admission_staff'] },
       },
+      {
+        path: 'ai-insights',
+        loadComponent: () => import('./features/ai/ai-insights.component').then(m => m.AiInsightsComponent),
+        canActivate: [roleGuard],
+        data: { roles: [...ADMIN] },
+      },
     ],
   },
 
@@ -210,6 +216,10 @@ export const routes: Routes = [
       {
         path: 'schools',
         loadComponent: () => import('./features/platform/schools/platform-schools.component').then(m => m.PlatformSchoolsComponent),
+      },
+      {
+        path: 'ai-usage',
+        loadComponent: () => import('./features/platform/ai-usage/platform-ai-usage.component').then(m => m.PlatformAiUsageComponent),
       },
     ],
   },

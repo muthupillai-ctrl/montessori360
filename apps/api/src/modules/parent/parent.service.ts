@@ -112,8 +112,36 @@ class ParentService {
   async getInvoices(schema: string, parentId: string, studentId: string): Promise<unknown> {
     const ids = await this.getStudentIds(schema, parentId);
     this.assertOwns(ids, studentId);
-    const result = await feesService.listInvoices(schema, { student_id: studentId, limit: 50 });
+    const result = await feesService.listInvoices(schema, { student_id: studentId, limit: 100 });
     return result.data;
+  }
+
+  async getPaymentHistory(schema: string, parentId: string, studentId: string, invoiceId: string): Promise<unknown> {
+    const ids = await this.getStudentIds(schema, parentId);
+    this.assertOwns(ids, studentId);
+    // Verify invoice belongs to this student
+    const [inv] = await tenantQuery<{ student_id: string }>(
+      schema,
+      `SELECT student_id FROM ${schema}.fee_invoices WHERE id = $1`,
+      [invoiceId]
+    );
+    if (!inv || !ids.includes(inv.student_id)) throw AppError.forbidden('Access denied');
+    // Pull individual payment records from audit log
+    const rows = await tenantQuery<{ delta: Record<string, unknown>; created_at: string }>(
+      schema,
+      `SELECT delta, created_at
+       FROM   ${schema}.audit_logs
+       WHERE  action = 'PAYMENT' AND entity = 'fee_invoices' AND entity_id = $1
+       ORDER  BY created_at ASC`,
+      [invoiceId]
+    );
+    return rows.map(r => ({
+      amount:       (r.delta as any).amount,
+      method:       (r.delta as any).method,
+      reference_no: (r.delta as any).reference_no,
+      notes:        (r.delta as any).notes,
+      paid_at:      r.created_at,
+    }));
   }
 
   // ── Journal ────────────────────────────────────────────────────────────────
@@ -172,7 +200,7 @@ class ParentService {
           `SELECT COUNT(*)::text AS cnt FROM fee_invoices WHERE student_id = $1 AND status IN ('pending','overdue')`,
           [child.id]),
         tenantQuery<{ mood: string }>(schema,
-          `SELECT mood FROM daily_journals WHERE student_id = $1 AND is_published = true ORDER BY date DESC LIMIT 1`,
+          `SELECT mood FROM ${schema}.daily_journals WHERE student_id = $1 AND published_at IS NOT NULL ORDER BY journal_date DESC LIMIT 1`,
           [child.id]),
         this.getTransportStatus(schema, parentId, child.id, today).catch(() => null),
       ]);

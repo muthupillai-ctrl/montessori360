@@ -131,6 +131,10 @@ body {
 .mat-mdc-dialog-content { padding: 8px 24px 16px !important; }
 .mat-mdc-dialog-actions { padding: 8px 24px 16px !important; border-top: 1px solid var(--border); }
 
+// Remove inner padding for dialogs that own their own layout (invoice wizard, etc.)
+.no-pad-dialog .mat-mdc-dialog-container .mdc-dialog__container { padding: 0; }
+.no-pad-dialog .mat-mdc-dialog-container .mat-mdc-dialog-surface { padding: 0; border-radius: 12px; overflow: hidden; }
+
 .mat-mdc-snack-bar-container {
   --mdc-snackbar-container-shape: var(--radius-md);
   --mdc-snackbar-container-color: #1F2937;

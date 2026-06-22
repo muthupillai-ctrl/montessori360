@@ -56,6 +56,7 @@ export interface Student {
   admission_date:      string;
   is_active:           boolean;
   created_at:          string;
+  rfid_uid:            string | null;
 }
 
 export interface EmergencyContact {
@@ -120,6 +121,8 @@ export interface FeeInvoice {
   line_items:       LineItem[] | string;
   subtotal:         number;
   discount:         number;
+  discount_note?:   string | null;
+  concession_id?:   string | null;
   tax:              number;
   total:            number;
   due_date:         string;
@@ -146,14 +149,15 @@ export interface LineItem {
 }
 
 export interface FeeStructure {
-  id:            string;
-  name:          string;
-  academic_year: string;
-  billing_cycle: string;
-  applies_to:    'all' | 'class';
-  class_ids:     string[];
-  heads:         FeeHead[];
-  is_active:     boolean;
+  id:             string;
+  name:           string;
+  academic_year:  string;
+  billing_cycle:  string;
+  applies_to:     'all' | 'class';
+  class_ids:      string[];
+  heads:          FeeHead[];
+  is_active:      boolean;
+  allow_multiple: boolean;
 }
 
 export interface FeeHead {

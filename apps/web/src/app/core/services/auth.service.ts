@@ -16,6 +16,7 @@ const ROLE_HOME: Record<string, string> = {
   support:          '/dashboard',
   driver:           '/driver',
   parent:           '/parent/dashboard',
+  rfid_admin:       '/login',   // service account — not a web app user
 };
 
 @Injectable({ providedIn: 'root' })

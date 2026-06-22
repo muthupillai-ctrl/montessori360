@@ -12,13 +12,14 @@ import {
   listParents, createParent, updateParent, deleteParent, inviteParentToPortal,
   listAllParents, listPortalAccounts, inviteParentByRecord,
   resendParentInvite, togglePortalAccount, deletePortalAccount,
+  assignRfid,
 } from './students.controller.js';
 
 export const studentsRouter = Router();
 studentsRouter.use(authenticate);
 
 const ADMIN_ROLES  = ['owner', 'principal'];
-const VIEW_ROLES   = ['owner', 'principal', 'teacher', 'assistant_teacher', 'accountant', 'admission_staff'];
+const VIEW_ROLES   = ['owner', 'principal', 'teacher', 'assistant_teacher', 'accountant', 'admission_staff', 'rfid_admin'];
 const MANAGE_ROLES = ['owner', 'principal', 'admission_staff'];
 
 // ── Classes ───────────────────────────────────────────────────────────────────
@@ -44,6 +45,9 @@ studentsRouter.delete('/:id', authorize(...MANAGE_ROLES), validateStudentId, dea
 
 // ── Class assignment ──────────────────────────────────────────────────────────
 studentsRouter.patch('/:id/class', authorize(...MANAGE_ROLES), validateStudentId, validateAssignClass, assignClass);
+
+// ── RFID card assignment (rfid_admin only) ────────────────────────────────────
+studentsRouter.patch('/:id/rfid', authorize('rfid_admin', ...MANAGE_ROLES), validateStudentId, assignRfid);
 
 // ── Siblings ──────────────────────────────────────────────────────────────────
 studentsRouter.get('/:id/siblings',    authorize(...VIEW_ROLES),   validateStudentId,    getSiblings);

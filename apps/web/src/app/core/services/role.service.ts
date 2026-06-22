@@ -12,7 +12,8 @@ export type AppRole =
   | 'admission_staff'
   | 'driver'
   | 'support'
-  | 'parent';
+  | 'parent'
+  | 'rfid_admin';
 
 const ADMIN_ROLES:    AppRole[] = ['owner', 'principal'];
 const MANAGE_ROLES:   AppRole[] = ['owner', 'principal', 'accountant'];
@@ -71,6 +72,12 @@ function principalNav(): NavGroup[] {
         { label: 'Transport',      icon: 'bus',               route: '/transport' },
         { label: 'Calendar',       icon: 'calendar-month',    route: '/calendar' },
         { label: 'Communication',  icon: 'messages',          route: '/communication', badgeKey: 'unread' },
+      ],
+    },
+    {
+      label: 'Intelligence',
+      items: [
+        { label: 'AI Insights', icon: 'brain', route: '/ai-insights' },
       ],
     },
   ];
@@ -201,6 +208,8 @@ const NAV_BY_ROLE: Record<AppRole, NavGroup[]> = {
   ],
 
   parent: [],
+
+  rfid_admin: [],
 };
 
 // ── RoleService ───────────────────────────────────────────────────────────────
@@ -254,6 +263,7 @@ export class RoleService {
       driver:            'Driver',
       support:           'Support',
       parent:            'Parent',
+      rfid_admin:        'RFID Admin',
     };
     const r = this.role();
     return r ? (labels[r] ?? r) : '';

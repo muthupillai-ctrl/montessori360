@@ -4,6 +4,7 @@ import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/materia
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { TitleCasePipe } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
 import type { Student, SchoolClass } from '../../core/models';
@@ -21,7 +22,7 @@ const ACTIVITY_TYPES = [
   imports: [
     ReactiveFormsModule, MatDialogModule,
     MatButtonModule, MatIconModule,
-    MatProgressSpinnerModule, TitleCasePipe,
+    MatProgressSpinnerModule, MatTooltipModule, TitleCasePipe,
   ],
   template: `
     <div class="dialog-shell">
@@ -116,7 +117,21 @@ const ACTIVITY_TYPES = [
               </div>
 
               <div class="field-group">
-                <label class="field-label">Teacher's observation</label>
+                <div class="obs-label-row">
+                  <label class="field-label">Teacher's observation</label>
+                  <button type="button" class="ai-wand-btn"
+                          [disabled]="aiAssisting()"
+                          (click)="assistRemark()"
+                          matTooltip="Generate with AI">
+                    @if (aiAssisting()) {
+                      <mat-progress-spinner diameter="14" mode="indeterminate"
+                        style="--mdc-circular-progress-active-indicator-color:#7C3AED" />
+                    } @else {
+                      <mat-icon style="font-size:15px;width:15px;height:15px">auto_fix_high</mat-icon>
+                    }
+                    <span>AI Assist</span>
+                  </button>
+                </div>
                 <textarea class="field-input field-textarea" formControlName="teacher_note"
                           placeholder="Share what the child did today, any progress made, social interactions, or notable moments to share with parents…"></textarea>
               </div>
@@ -470,6 +485,20 @@ const ACTIVITY_TYPES = [
       &.selected { border-color: var(--blue); background: var(--blue); color: #fff; }
     }
 
+    /* AI Assist */
+    .obs-label-row {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .ai-wand-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: #F5F3FF; color: #7C3AED;
+      border: 1px solid #DDD6FE; border-radius: 7px;
+      padding: 0 10px; height: 28px; font-size: 11.5px; font-weight: 500;
+      cursor: pointer; transition: all .12s; white-space: nowrap;
+      &:hover:not(:disabled) { background: #EDE9FE; border-color: #C4B5FD; }
+      &:disabled { opacity: .6; cursor: not-allowed; }
+    }
+
     /* Error banner */
     .error-banner {
       display: flex; align-items: center; gap: 8px; flex-shrink: 0;
@@ -518,6 +547,7 @@ export class JournalFormDialogComponent implements OnInit {
   students      = signal<Student[]>([]);
   selectedClass = signal('');
   submitting    = signal(false);
+  aiAssisting   = signal(false);
   error         = signal('');
   activeTab     = signal('student');
 
@@ -664,6 +694,52 @@ export class JournalFormDialogComponent implements OnInit {
     if (acts.length) payload['activities'] = acts;
 
     return payload;
+  }
+
+  assistRemark() {
+    const val = this.form.value;
+
+    // resolve student name from the students signal (create mode) or journal data (edit mode)
+    let studentName = '';
+    let className   = '';
+    if (this.isEdit) {
+      studentName = this.data.journal?.student_name ?? '';
+      className   = this.data.journal?.class_name   ?? '';
+    } else {
+      const s = this.students().find(x => String(x.id) === String(val.student_id));
+      studentName = s ? `${s.first_name} ${s.last_name}` : '';
+    }
+
+    if (!studentName) {
+      this.error.set('Please select a student first.');
+      return;
+    }
+
+    this.aiAssisting.set(true);
+    this.error.set('');
+
+    const activities = ((val.activities ?? []) as any[])
+      .filter(a => a.type && a.description?.trim())
+      .map(a => ({ type: a.type, description: a.description.trim(), duration_mins: a.duration_mins ?? undefined }));
+
+    this.api.post<any>('/ai/assist/remark', {
+      student_name:  studentName,
+      class_name:    className || undefined,
+      journal_date:  val.journal_date ?? this.data.date,
+      mood:          val.mood        ?? undefined,
+      mood_note:     val.mood_note   || undefined,
+      activities:    activities.length ? activities : undefined,
+      existing_note: (val.teacher_note as string)?.trim() || undefined,
+    }).subscribe({
+      next: (res: any) => {
+        this.form.patchValue({ teacher_note: res.data.text });
+        this.aiAssisting.set(false);
+      },
+      error: (err: any) => {
+        this.aiAssisting.set(false);
+        this.error.set(err.error?.error?.message ?? 'AI assist failed. Please try again.');
+      },
+    });
   }
 
   submit(publish: boolean) {

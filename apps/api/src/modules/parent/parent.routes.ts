@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authenticate, authorize } from '../../middleware/auth.js';
 import {
   getProfile, getMyStudents, getDashboard,
-  getAttendance, getTransport, getInvoices,
+  getAttendance, getTransport, getInvoices, getPaymentHistory,
   getJournals, getProgress, getHomework,
   getAnnouncements,
   getConversations, getThread, sendMessage, getUnreadCount, markRead, getStaffContacts,
@@ -16,7 +16,8 @@ parentRouter.get('/students',                        getMyStudents);
 parentRouter.get('/dashboard',                       getDashboard);
 parentRouter.get('/students/:studentId/attendance',  getAttendance);
 parentRouter.get('/students/:studentId/transport',   getTransport);
-parentRouter.get('/students/:studentId/fees',        getInvoices);
+parentRouter.get('/students/:studentId/fees',                              getInvoices);
+parentRouter.get('/students/:studentId/fees/:invoiceId/payments',          getPaymentHistory);
 parentRouter.get('/students/:studentId/journal',     getJournals);
 parentRouter.get('/students/:studentId/progress',    getProgress);
 parentRouter.get('/students/:studentId/homework',    getHomework);

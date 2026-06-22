@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { platformAdminService } from './platform-admin.service.js';
+import { usageService } from '../ai/usage.service.js';
 
 export async function login(req: Request, res: Response, next: NextFunction) {
   try {
@@ -48,5 +49,13 @@ export async function listPlans(req: Request, res: Response, next: NextFunction)
   try {
     const plans = await platformAdminService.listPlans();
     res.json({ data: plans });
+  } catch (err) { next(err); }
+}
+
+
+export async function getAiUsage(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await usageService.platformSummary();
+    res.json({ data });
   } catch (err) { next(err); }
 }

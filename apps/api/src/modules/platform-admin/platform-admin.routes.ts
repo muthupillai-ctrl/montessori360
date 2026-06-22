@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authenticatePlatformAdmin } from './platform-admin.middleware.js';
 import { validateLogin, validateCreateTenant, validateUpdateTenant } from './platform-admin.validators.js';
 import {
-  login, listTenants, getTenant, createTenant, updateTenant, toggleActive, listPlans,
+  login, listTenants, getTenant, createTenant, updateTenant, toggleActive, listPlans, getAiUsage,
 } from './platform-admin.controller.js';
 
 export const platformAdminRouter = Router();
@@ -18,3 +18,4 @@ platformAdminRouter.post('/tenants',            validateCreateTenant, createTena
 platformAdminRouter.get('/tenants/:id',         getTenant);
 platformAdminRouter.put('/tenants/:id',         validateUpdateTenant, updateTenant);
 platformAdminRouter.patch('/tenants/:id/toggle-active', toggleActive);
+platformAdminRouter.get('/ai-usage',                    getAiUsage);

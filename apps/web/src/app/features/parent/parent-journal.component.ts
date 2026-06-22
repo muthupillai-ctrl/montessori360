@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, effect } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { DatePipe, TitleCasePipe } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
@@ -13,6 +13,12 @@ import { ParentStateService } from './parent-state.service';
 
       @if (loading()) {
         <div class="loading"><mat-progress-spinner diameter="28" mode="indeterminate"/></div>
+      } @else if (apiError()) {
+        <div class="empty-state">
+          <div class="empty-icon">⚠️</div>
+          <div class="empty-title">Could not load journals</div>
+          <div class="empty-sub">{{ apiError() }}</div>
+        </div>
       } @else if (!entries().length) {
         <div class="empty-state">
           <div class="empty-icon">📓</div>
@@ -146,22 +152,32 @@ import { ParentStateService } from './parent-state.service';
     .hw-desc { font-size: 13px; color: #344054; }
   `],
 })
-export class ParentJournalComponent implements OnInit {
+export class ParentJournalComponent {
   private api = inject(ApiService);
   state       = inject(ParentStateService);
   loading     = signal(true);
   entries     = signal<any[]>([]);
+  apiError    = signal('');
 
-  ngOnInit() {
-    const child = this.state.activeChild();
-    if (!child) { this.loading.set(false); return; }
-    this.api.get<any>(`/parent/students/${child.id}/journal`).subscribe({
-      next: (res: any) => {
-        const raw = res.data?.data ?? res.data?.items ?? res.data ?? [];
-        this.entries.set(Array.isArray(raw) ? raw : []);
-        this.loading.set(false);
-      },
-      error: () => this.loading.set(false),
+  constructor() {
+    effect(() => {
+      const child = this.state.activeChild();
+      this.entries.set([]);
+      this.apiError.set('');
+      if (!child) { this.loading.set(false); return; }
+      this.loading.set(true);
+      this.api.get<any>(`/parent/students/${child.id}/journal`).subscribe({
+        next: (res: any) => {
+          const raw = res.data?.data ?? res.data?.items ?? res.data ?? [];
+          this.entries.set(Array.isArray(raw) ? raw : []);
+          this.loading.set(false);
+        },
+        error: (err: any) => {
+          const msg = err.error?.error?.message ?? err.message ?? `Error ${err.status}`;
+          this.apiError.set(msg);
+          this.loading.set(false);
+        },
+      });
     });
   }
 

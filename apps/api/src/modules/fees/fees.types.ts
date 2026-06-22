@@ -12,16 +12,17 @@ export interface FeeHead {
 }
 
 export interface FeeStructureRow {
-  id:            string;
-  name:          string;
-  academic_year: string;
-  billing_cycle: BillingCycle;
-  heads:         FeeHead[];
-  applies_to:    'all' | 'class';
-  class_ids:     string[];
-  is_active:     boolean;
-  created_at:    Date;
-  updated_at:    Date;
+  id:             string;
+  name:           string;
+  academic_year:  string;
+  billing_cycle:  BillingCycle;
+  heads:          FeeHead[];
+  applies_to:     'all' | 'class';
+  class_ids:      string[];
+  is_active:      boolean;
+  allow_multiple: boolean;
+  created_at:     Date;
+  updated_at:     Date;
 }
 
 export interface LineItem {
@@ -39,6 +40,8 @@ export interface FeeInvoiceRow {
   line_items:        LineItem[];
   subtotal:          number;
   discount:          number;
+  discount_note:     string | null;
+  concession_id:     string | null;
   tax:               number;
   total:             number;
   due_date:          Date;
@@ -71,23 +74,27 @@ export interface PaymentRow {
 // ── DTOs ──────────────────────────────────────────────────────────────────────
 
 export interface CreateFeeStructureDto {
-  name:          string;
-  academic_year: string;
-  billing_cycle: BillingCycle;
-  heads:         FeeHead[];
-  applies_to?:   'all' | 'class';
-  class_ids?:    string[];
+  name:            string;
+  academic_year:   string;
+  billing_cycle:   BillingCycle;
+  heads:           FeeHead[];
+  applies_to?:     'all' | 'class';
+  class_ids?:      string[];
+  allow_multiple?: boolean;
 }
 
 export interface CreateInvoiceDto {
-  student_id:        string;
-  fee_structure_id?: string;
-  invoice_type?:     'fee_structure' | 'transport' | 'adhoc';
-  billing_period:    string;
-  line_items:        LineItem[];
-  discount?:         number;
-  tax?:              number;
-  due_date:          string;
+  student_id:         string;
+  fee_structure_id?:  string;
+  invoice_type?:      'fee_structure' | 'transport' | 'adhoc';
+  billing_period:     string;
+  line_items:         LineItem[];
+  discount?:          number;
+  discount_note?:     string;
+  concession_id?:     string;
+  skip_concession?:   boolean;
+  tax?:               number;
+  due_date:           string;
 }
 
 export interface BulkCreateInvoicesDto {

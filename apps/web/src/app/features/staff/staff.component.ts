@@ -54,6 +54,7 @@ const ROLE_CONFIG: Record<string, { label: string; color: string; bg: string }> 
   driver:            { label: 'Driver',              color: '#6B7280', bg: '#F9FAFB' },
   support:           { label: 'Support',             color: '#9CA3AF', bg: '#F9FAFB' },
   admission_staff:   { label: 'Admission Staff',     color: '#0891B2', bg: '#ECFEFF' },
+  rfid_admin:        { label: 'RFID Admin',           color: '#6B7280', bg: '#F3F4F6' },
 };
 
 @Component({
@@ -103,6 +104,8 @@ const ROLE_CONFIG: Record<string, { label: string; color: string; bg: string }> 
               <option value="accountant">Accountant</option>
               <option value="driver">Driver</option>
               <option value="support">Support</option>
+              <option value="admission_staff">Admission Staff</option>
+              <option value="rfid_admin">RFID Admin</option>
             </select>
             <select class="filter-select" [value]="statusFilter()" (change)="statusFilter.set($any($event.target).value)">
               <option value="true">Active</option>

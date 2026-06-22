@@ -13,7 +13,7 @@ import {
 export const attendanceRouter = Router();
 attendanceRouter.use(authenticate);
 
-const MARK_ROLES = ['owner', 'principal', 'teacher', 'assistant_teacher'];
+const MARK_ROLES = ['owner', 'principal', 'teacher', 'assistant_teacher', 'rfid_admin'];
 const VIEW_ROLES = ['owner', 'principal', 'teacher', 'assistant_teacher', 'accountant'];
 
 // Mark attendance

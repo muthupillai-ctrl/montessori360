@@ -11,9 +11,15 @@ export class ParentStateService {
 
   setChildren(children: any[]) {
     this.children.set(children);
-    if (children.length && !this.activeChildId()) {
-      this.activeChildId.set(children[0].id);
-    }
+    // Always reset to first child — prevents stale ID from a previous parent login
+    // in the same browser session surviving into a new login.
+    if (children.length) this.activeChildId.set(children[0].id);
+    else this.activeChildId.set(null);
+  }
+
+  reset() {
+    this.children.set([]);
+    this.activeChildId.set(null);
   }
 
   selectChild(id: string) { this.activeChildId.set(id); }

@@ -140,9 +140,14 @@ import { ApiService } from '../../../core/services/api.service';
             <mat-menu #notifMenu="matMenu" class="notif-menu">
               <div class="notif-header" (click)="$event.stopPropagation()">
                 <span class="notif-title">Notifications</span>
-                @if (unseenCount() > 0) {
-                  <span class="notif-badge">{{ unseenCount() }}</span>
-                }
+                <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+                  @if (unseenCount() > 0) {
+                    <span class="notif-badge">{{ unseenCount() }}</span>
+                    <button class="notif-clear-btn" (click)="clearAllNotifications()" title="Clear all">
+                      <i class="ti ti-checks" style="font-size:13px"></i> Clear all
+                    </button>
+                  }
+                </div>
               </div>
               <mat-divider />
 
@@ -189,6 +194,34 @@ import { ApiService } from '../../../core/services/api.service';
                       <div class="notif-item-sub">{{ a.published_at | date:'d MMM, h:mm a' }}</div>
                     </div>
                     <i class="ti ti-chevron-right" style="color:var(--text-4);font-size:14px;flex-shrink:0"></i>
+                  </div>
+                }
+              }
+
+              @if (aiInsights().length > 0) {
+                <div class="notif-section-label" (click)="$event.stopPropagation()">
+                  <i class="ti ti-brain" style="font-size:11px;margin-right:4px"></i> AI Insights
+                  <span style="margin-left:auto;font-size:10px;font-weight:500;color:#7C3AED;cursor:pointer;text-transform:none;letter-spacing:0"
+                        (click)="router.navigate(['/ai-insights'])">View all →</span>
+                </div>
+                @for (insight of aiInsights().slice(0, 3); track insight.id) {
+                  <div class="notif-item notif-unseen ai-insight-item notif-clickable" (click)="router.navigate(['/ai-insights'])">
+                    <i class="ti {{ insightIcon(insight.type) }}"
+                       [style.color]="insightColor(insight.severity)"
+                       style="font-size:15px;flex-shrink:0;margin-top:1px"></i>
+                    <div class="notif-item-body">
+                      <div class="notif-item-title">{{ insight.message }}</div>
+                      <div class="notif-item-sub" style="text-transform:capitalize">
+                        {{ insight.type.replace('_', ' ') }} · {{ insight.severity }} priority
+                      </div>
+                    </div>
+                    <i class="ti ti-chevron-right" style="color:var(--text-4);font-size:14px;flex-shrink:0"></i>
+                  </div>
+                }
+                @if (aiInsights().length > 3) {
+                  <div class="notif-item ai-insight-item notif-clickable" style="justify-content:center;color:#7C3AED;font-size:12px;font-weight:500"
+                       (click)="router.navigate(['/ai-insights'])">
+                    +{{ aiInsights().length - 3 }} more insights → View all
                   </div>
                 }
               }
@@ -437,6 +470,19 @@ import { ApiService } from '../../../core/services/api.service';
     .notif-item-sub { font-size: 11px; color: var(--text-4); margin-top: 2px; }
     .notif-clickable { cursor: pointer; }
     .notif-clickable:hover { background: #DBEAFE; }
+    .notif-clear-btn {
+      font-size: 11px; font-weight: 500; color: var(--text-3); background: transparent;
+      border: 1px solid var(--border); border-radius: 5px; padding: 2px 8px; cursor: pointer;
+      display: flex; align-items: center; gap: 4px; white-space: nowrap;
+      &:hover { background: #F3F4F6; color: var(--text-1); }
+    }
+    .ai-insight-item { background: #FFFBEB; gap: 10px; }
+    .ai-insight-item:hover { background: #FEF3C7; }
+    .insight-dismiss {
+      flex-shrink: 0; border: none; background: transparent; cursor: pointer;
+      color: var(--text-4); padding: 2px 4px; border-radius: 4px;
+      &:hover { background: rgba(0,0,0,.08); color: var(--text-2); }
+    }
     .notif-section-label {
       font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
       color: var(--text-4); padding: 8px 16px 4px;
@@ -473,18 +519,23 @@ export class ShellComponent implements OnInit {
   auth  = inject(AuthService);
   roles = inject(RoleService);
   private api    = inject(ApiService);
-  private router = inject(Router);
+  router = inject(Router);
 
-  msgUnread      = signal(0);   // unread direct messages (sidebar badge + bell)
-  announcementUnseen = signal(0); // announcements not yet seen (bell only)
-  circulars      = signal<any[]>([]); // unacknowledged circulars needing action
-  announcements  = signal<any[]>([]);
-  studentQuery   = '';
+  msgUnread          = signal(0);
+  announcementUnseen = signal(0);
+  circulars          = signal<any[]>([]);
+  announcements      = signal<any[]>([]);
+  aiInsights         = signal<any[]>([]);
+  studentQuery       = '';
   private lastOpenedAt: Date | null = null;
 
-  // Bell badge = all three sources
+  private isAdminRole = computed(() =>
+    ['owner', 'principal', 'vice_principal'].includes(this.roles.role() ?? '')
+  );
+
+  // Bell badge = all sources including AI insights
   unseenCount = computed(() =>
-    this.msgUnread() + this.announcementUnseen() + this.circulars().length
+    this.msgUnread() + this.announcementUnseen() + this.circulars().length + this.aiInsights().length
   );
 
   currentTitle = signal('Dashboard');
@@ -519,6 +570,7 @@ export class ShellComponent implements OnInit {
     this.loadMsgUnread();
     this.loadAnnouncements();
     this.loadCirculars();
+    if (this.isAdminRole()) this.loadAiInsights();
   }
 
   private loadMsgUnread() {
@@ -544,15 +596,59 @@ export class ShellComponent implements OnInit {
   }
 
   private loadCirculars() {
+    const role = this.roles.role();
+    // Owners and principals are senders — backend blocks them from acknowledging, so never show pending circulars to them
+    if (role === 'owner' || role === 'principal') {
+      this.circulars.set([]);
+      return;
+    }
     this.api.get<any>('/communication/circulars?published=true&limit=20').subscribe({
       next: (res: any) => {
         const items: any[] = res.data?.data ?? res.data ?? [];
-        // Only circulars that require ack and haven't been acknowledged yet
         const pending = items.filter((c: any) => c.published_at && c.requires_ack && !c.user_acknowledged);
         this.circulars.set(pending);
       },
       error: () => {},
     });
+  }
+
+  private loadAiInsights() {
+    this.api.get<any>('/ai/insights').subscribe({
+      next: (res: any) => this.aiInsights.set(res.data ?? []),
+      error: () => {},
+    });
+  }
+
+  resolveInsight(id: string) {
+    this.api.patch<any>(`/ai/insights/${id}/resolve`, {}).subscribe({
+      next: () => this.aiInsights.update(list => list.filter(i => i.id !== id)),
+      error: () => {},
+    });
+  }
+
+  insightIcon(type: string): string {
+    const map: Record<string, string> = {
+      attendance_drop:      'ti-trending-down',
+      chronic_absenteeism:  'ti-user-exclamation',
+      fee_default_risk:     'ti-coin-off',
+      uncovered_class:      'ti-school',
+    };
+    return map[type] ?? 'ti-alert-triangle';
+  }
+
+  insightColor(severity: string): string {
+    return severity === 'high' ? '#DC2626' : severity === 'medium' ? '#D97706' : '#2563EB';
+  }
+
+  clearAllNotifications() {
+    // Clear announcements and AI insights locally; resolve all insights on backend
+    this.announcements.set([]);
+    this.announcementUnseen.set(0);
+    this.circulars.set([]);
+    if (this.aiInsights().length > 0) {
+      this.api.post<any>('/ai/insights/resolve-all', {}).subscribe({ error: () => {} });
+      this.aiInsights.set([]);
+    }
   }
 
   onNotifPanelOpen() {

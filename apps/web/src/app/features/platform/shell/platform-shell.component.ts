@@ -23,6 +23,9 @@ import { PlatformAuthService } from '../../../core/services/platform-auth.servic
           <a class="ps-item" routerLink="/platform/schools" routerLinkActive="active">
             <mat-icon>school</mat-icon> Schools
           </a>
+          <a class="ps-item" routerLink="/platform/ai-usage" routerLinkActive="active">
+            <mat-icon>auto_awesome</mat-icon> AI Usage
+          </a>
         </nav>
 
         <div class="ps-footer">

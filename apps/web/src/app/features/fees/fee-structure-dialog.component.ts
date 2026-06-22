@@ -83,6 +83,20 @@ import type { FeeStructure, SchoolClass, ApiResponse } from '../../core/models';
             </div>
           }
 
+          <!-- Allow multiple toggle -->
+          <div class="toggle-option">
+            <div class="toggle-wrap">
+              <label class="toggle">
+                <input type="checkbox" formControlName="allow_multiple">
+                <span class="toggle-track"></span>
+              </label>
+            </div>
+            <div>
+              <div class="to-label">Allow Multiple Invoices</div>
+              <div class="to-hint">When enabled, this fee structure can be invoiced to the same student more than once per period (e.g. Miscellaneous fees, Activity fees).</div>
+            </div>
+          </div>
+
           <!-- Fee heads -->
           <div class="section-block">
             <div class="sb-title">
@@ -267,6 +281,12 @@ import type { FeeStructure, SchoolClass, ApiResponse } from '../../core/models';
       &:hover { background: var(--blue-light); border-color: var(--blue-mid); }
     }
 
+    .toggle-option {
+      display: flex; gap: 12px; align-items: flex-start;
+      padding: 12px 14px; background: var(--bg); border-radius: 8px; border: 1px solid var(--border);
+    }
+    .to-label { font-size: 13px; font-weight: 600; color: var(--text); }
+    .to-hint  { font-size: 11px; color: var(--text-3); margin-top: 3px; line-height: 1.5; }
     .loading-hint { font-size: 12px; color: var(--text-3); padding: 8px 10px; }
     .error-banner {
       display: flex; align-items: center; gap: 8px;
@@ -305,11 +325,12 @@ export class FeeStructureDialogComponent implements OnInit {
   classes    = signal<SchoolClass[]>([]);
 
   form = this.fb.group({
-    name:          [this.existing?.name ?? '', Validators.required],
-    billing_cycle: [this.existing?.billing_cycle ?? 'monthly', Validators.required],
-    academic_year: [this.existing?.academic_year ?? '2025-2026', Validators.required],
-    applies_to:    ['all'],
-    class_id:      [''],
+    name:           [this.existing?.name ?? '', Validators.required],
+    billing_cycle:  [this.existing?.billing_cycle ?? 'monthly', Validators.required],
+    academic_year:  [this.existing?.academic_year ?? '2025-2026', Validators.required],
+    applies_to:     ['all'],
+    class_id:       [''],
+    allow_multiple: [this.existing?.allow_multiple ?? false],
     heads:         this.fb.array(
       (this.existing?.heads ?? [{ name: '', amount: 0, is_optional: false }])
         .map((h: any) => this.fb.group({
@@ -349,12 +370,13 @@ export class FeeStructureDialogComponent implements OnInit {
 
     const val = this.form.value;
     const payload = {
-      name:          val.name,
-      billing_cycle: val.billing_cycle,
-      academic_year: val.academic_year,
-      applies_to:    val.applies_to,
-      class_ids:     val.applies_to === 'class' && val.class_id ? [val.class_id] : [],
-      heads:         (val.heads ?? []).map((h: any) => ({
+      name:           val.name,
+      billing_cycle:  val.billing_cycle,
+      academic_year:  val.academic_year,
+      applies_to:     val.applies_to,
+      class_ids:      val.applies_to === 'class' && val.class_id ? [val.class_id] : [],
+      allow_multiple: !!val.allow_multiple,
+      heads:          (val.heads ?? []).map((h: any) => ({
         name:        h.name,
         amount:      +h.amount,
         is_optional: !!h.is_optional,

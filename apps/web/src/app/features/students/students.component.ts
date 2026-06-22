@@ -140,6 +140,7 @@ import type { Student, SchoolClass, PaginatedResponse, ApiResponse } from '../..
                 <tr>
                   <th>Student</th>
                   <th>Admission No</th>
+                  <th>RFID Card</th>
                   <th>Class</th>
                   <th>Date of Birth</th>
                   <th>Gender</th>
@@ -162,6 +163,13 @@ import type { Student, SchoolClass, PaginatedResponse, ApiResponse } from '../..
                       </div>
                     </td>
                     <td><span class="mono-chip">{{ s.admission_no }}</span></td>
+                    <td>
+                      @if (s.rfid_uid) {
+                        <span class="mono-chip rfid-chip">📡 {{ s.rfid_uid }}</span>
+                      } @else {
+                        <span class="text-muted text-xs">—</span>
+                      }
+                    </td>
                     <td>
                       @if (s.class_name) {
                         <span class="class-tag">{{ s.class_name }}</span>
@@ -340,6 +348,7 @@ import type { Student, SchoolClass, PaginatedResponse, ApiResponse } from '../..
       font-size: 11.5px; background: var(--bg); color: var(--blue);
       padding: 2px 8px; border-radius: 5px; font-weight: 500;
     }
+    .rfid-chip { color: var(--green, #059669); background: var(--green-light, #ECFDF5); }
     .class-tag {
       background: var(--purple-light); color: var(--purple);
       font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 5px;

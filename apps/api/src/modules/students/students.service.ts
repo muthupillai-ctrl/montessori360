@@ -26,7 +26,7 @@ class StudentsService {
 
   // ── List students ─────────────────────────────────────────────────────────
   async list(schema: string, filters: StudentFilters): Promise<PaginatedResponse<StudentRow>> {
-    const { class_id, is_active = true, no_class, search, page = 1, limit = 20 } = filters;
+    const { class_id, is_active = true, no_class, search, rfid_uid, page = 1, limit = 20 } = filters;
     const offset = (page - 1) * limit;
 
     const cacheKey = `${schema}:students:list:${JSON.stringify(filters)}`;
@@ -48,6 +48,10 @@ class StudentsService {
       conditions.push(`(s.first_name ILIKE $${i} OR s.last_name ILIKE $${i} OR s.admission_no ILIKE $${i})`);
       params.push(`%${search}%`);
       i++;
+    }
+    if (rfid_uid) {
+      conditions.push(`s.rfid_card_no = $${i++}`);
+      params.push(rfid_uid.toUpperCase());
     }
 
     const where = conditions.join(' AND ');

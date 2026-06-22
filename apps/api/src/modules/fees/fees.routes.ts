@@ -10,6 +10,9 @@ import {
   listInvoices, getInvoice, createInvoice, bulkCreateInvoices,
   recordPayment, waiveInvoice, markOverdue, deleteInvoice,
   getDefaulters, getCollectionSummary,
+  listConcessions, createConcession, updateConcession, deleteConcession,
+  listAssignments, assignConcession, removeAssignment,
+  listSiblingGroups, bulkSiblingDiscount,
 } from './fees.controller.js';
 
 export const feesRouter = Router();
@@ -39,3 +42,16 @@ feesRouter.post('/invoices/mark-overdue', authorize('owner', 'principal', 'accou
 // ── Reporting ─────────────────────────────────────────────────────────────────
 feesRouter.get( '/defaulters',          authorize(...MANAGE_ROLES), validateDefaulterFilters,   getDefaulters);
 feesRouter.get( '/collection-summary',  authorize(...MANAGE_ROLES),                             getCollectionSummary);
+
+// ── Concessions ───────────────────────────────────────────────────────────────
+feesRouter.get(   '/concessions',                     authorize(...VIEW_ROLES),   listConcessions);
+feesRouter.post(  '/concessions',                     authorize(...MANAGE_ROLES), createConcession);
+feesRouter.put(   '/concessions/:id',                 authorize(...MANAGE_ROLES), updateConcession);
+feesRouter.delete('/concessions/:id',                 authorize(...MANAGE_ROLES), deleteConcession);
+
+feesRouter.get(   '/concessions/assignments',         authorize(...MANAGE_ROLES), listAssignments);
+feesRouter.post(  '/concessions/assignments',         authorize(...MANAGE_ROLES), assignConcession);
+feesRouter.delete('/concessions/assignments/:id',     authorize(...MANAGE_ROLES), removeAssignment);
+
+feesRouter.get(   '/concessions/siblings',            authorize(...MANAGE_ROLES), listSiblingGroups);
+feesRouter.post(  '/concessions/siblings/bulk-assign',authorize(...MANAGE_ROLES), bulkSiblingDiscount);

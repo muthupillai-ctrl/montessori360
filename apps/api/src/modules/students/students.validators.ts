@@ -50,6 +50,7 @@ export const studentFiltersSchema = z.object({
   is_active: boolParam.optional(),
   no_class:  boolParam.optional(),
   search:    z.string().max(100).optional(),
+  rfid_uid:  z.string().max(50).optional(),
   page:      z.preprocess(Number, z.number().int().min(1)).optional().default(1),
   limit:     z.preprocess(Number, z.number().int().min(1).max(500)).optional().default(20),
 });

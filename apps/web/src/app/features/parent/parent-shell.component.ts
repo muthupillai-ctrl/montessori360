@@ -239,5 +239,5 @@ export class ParentShellComponent implements OnInit {
     });
   }
 
-  logout() { this.auth.logout(); }
+  logout() { this.state.reset(); this.auth.logout(); }
 }

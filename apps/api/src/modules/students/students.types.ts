@@ -77,7 +77,8 @@ export interface StudentFilters {
   class_id?: string;
   is_active?: boolean;
   no_class?: boolean;
-  search?: string;      // searches first_name, last_name, admission_no
+  search?: string;
+  rfid_uid?: string;
   page?: number;
   limit?: number;
 }

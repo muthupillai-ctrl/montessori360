@@ -38,6 +38,9 @@ export const createInvoiceSchema = z.object({
   discount:          z.number().min(0).default(0),
   tax:               z.number().min(0).default(0),
   due_date:          isoDateSchema,
+  skip_concession:   z.boolean().optional(),
+  concession_id:     z.string().uuid().optional(),
+  discount_note:     z.string().optional(),
 });
 
 export const bulkCreateInvoicesSchema = z.object({

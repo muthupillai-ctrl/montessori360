@@ -21,6 +21,10 @@ export async function getInvoices(req: Request, res: Response) {
   res.json({ data: await parentService.getInvoices(sch(req), id(req), sid(req)) });
 }
 
+export async function getPaymentHistory(req: Request, res: Response) {
+  res.json({ data: await parentService.getPaymentHistory(sch(req), id(req), sid(req), req.params['invoiceId'] as string) });
+}
+
 export async function getJournals(req: Request, res: Response) {
   res.json({ data: await parentService.getJournals(sch(req), id(req), sid(req), req.query as Record<string, string>) });
 }
