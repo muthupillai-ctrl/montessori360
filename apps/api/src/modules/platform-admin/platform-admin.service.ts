@@ -191,6 +191,37 @@ class PlatformAdminService {
   async listPlans(): Promise<any[]> {
     return query(`SELECT id, name, max_students, max_staff, price_inr, features FROM public.subscription_plans ORDER BY price_inr`);
   }
+
+  async listSchoolAdmins(tenantId: string): Promise<{ id: string; email: string; first_name: string; last_name: string; role: string }[]> {
+    const [tenant] = await query<{ schema_name: string }>(
+      `SELECT schema_name FROM public.tenants WHERE id = $1`, [tenantId]
+    );
+    if (!tenant) throw AppError.notFound('School');
+
+    return tenantQuery(
+      tenant.schema_name,
+      `SELECT id, email, first_name, last_name, role
+       FROM staff
+       WHERE role IN ('owner', 'principal') AND is_active = true
+       ORDER BY role, first_name`
+    );
+  }
+
+  async resetStaffPassword(tenantId: string, staffId: string, newPassword: string): Promise<void> {
+    const [tenant] = await query<{ schema_name: string }>(
+      `SELECT schema_name FROM public.tenants WHERE id = $1`, [tenantId]
+    );
+    if (!tenant) throw AppError.notFound('School');
+
+    const hash = await bcrypt.hash(newPassword, 12);
+    const rows = await tenantQuery<{ id: string }>(
+      tenant.schema_name,
+      `UPDATE staff SET password_hash = $1, updated_at = now()
+       WHERE id = $2 AND role IN ('owner', 'principal') RETURNING id`,
+      [hash, staffId]
+    );
+    if (!rows.length) throw AppError.notFound('Staff admin');
+  }
 }
 
 export const platformAdminService = new PlatformAdminService();

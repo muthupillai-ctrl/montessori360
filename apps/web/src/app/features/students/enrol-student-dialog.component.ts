@@ -1,10 +1,10 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators, FormArray } from '@angular/forms';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { FormBuilder, ReactiveFormsModule, Validators, FormGroup } from '@angular/forms';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatStepperModule } from '@angular/material/stepper';
 import { DatePipe, TitleCasePipe } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
 import type { SchoolClass, ApiResponse } from '../../core/models';
@@ -15,7 +15,7 @@ import type { SchoolClass, ApiResponse } from '../../core/models';
   imports: [
     ReactiveFormsModule, MatDialogModule,
     MatButtonModule, MatIconModule,
-    MatProgressSpinnerModule, MatStepperModule,
+    MatProgressSpinnerModule,
     DatePipe, TitleCasePipe,
   ],
   template: `
@@ -38,9 +38,7 @@ import type { SchoolClass, ApiResponse } from '../../core/models';
             <div class="sn-circle">
               @if ($index < currentStep()) {
                 <mat-icon style="font-size:13px;width:13px;height:13px">check</mat-icon>
-              } @else {
-                {{ $index + 1 }}
-              }
+              } @else { {{ $index + 1 }} }
             </div>
             <span class="sn-label">{{ label }}</span>
           </div>
@@ -56,7 +54,6 @@ import type { SchoolClass, ApiResponse } from '../../core/models';
         <!-- ── Step 0: Basic Info ──────────────────────────────────── -->
         @if (currentStep() === 0) {
           <form [formGroup]="basicForm" class="step-form">
-
             <div class="form-row">
               <div class="field-group flex-1">
                 <label class="field-label">First Name <span class="req">*</span></label>
@@ -67,12 +64,8 @@ import type { SchoolClass, ApiResponse } from '../../core/models';
                 }
               </div>
               <div class="field-group flex-1">
-                <label class="field-label">Last Name <span class="req">*</span></label>
-                <input class="field-input" formControlName="last_name" placeholder="Sharma"
-                       [class.err]="basicForm.get('last_name')?.invalid && basicForm.get('last_name')?.touched">
-                @if (basicForm.get('last_name')?.invalid && basicForm.get('last_name')?.touched) {
-                  <div class="field-error">Required</div>
-                }
+                <label class="field-label">Last Name</label>
+                <input class="field-input" formControlName="last_name" placeholder="Sharma">
               </div>
             </div>
 
@@ -119,52 +112,42 @@ import type { SchoolClass, ApiResponse } from '../../core/models';
                 <label class="field-label">Blood Group</label>
                 <select class="field-input" formControlName="blood_group">
                   <option value="">Unknown</option>
-                  @for (bg of bloodGroups; track bg) {
-                    <option [value]="bg">{{ bg }}</option>
-                  }
+                  @for (bg of bloodGroups; track bg) { <option [value]="bg">{{ bg }}</option> }
                 </select>
               </div>
               <div class="field-group flex-1">
                 <label class="field-label">Nationality</label>
                 <input class="field-input" formControlName="nationality" placeholder="Indian">
               </div>
+              <div class="field-group flex-1">
+                <label class="field-label">Mother Tongue</label>
+                <input class="field-input" formControlName="mother_tongue" placeholder="e.g. Tamil, Hindi">
+              </div>
             </div>
-
           </form>
         }
 
         <!-- ── Step 1: Medical ───────────────────────────────────── -->
         @if (currentStep() === 1) {
           <form [formGroup]="basicForm" class="step-form">
-
             <div class="field-group">
               <label class="field-label">Allergies <span class="hint">(comma separated)</span></label>
-              <input class="field-input" formControlName="allergies_text"
-                     placeholder="e.g. Peanuts, Dairy, Gluten">
+              <input class="field-input" formControlName="allergies_text" placeholder="e.g. Peanuts, Dairy">
             </div>
-
             <div class="field-group">
               <label class="field-label">Dietary Notes</label>
-              <input class="field-input" formControlName="dietary_notes"
-                     placeholder="e.g. Vegetarian, No egg">
+              <input class="field-input" formControlName="dietary_notes" placeholder="e.g. Vegetarian, No egg">
             </div>
-
             <div class="section-divider">Medical Conditions</div>
-
             <div class="field-group">
               <label class="field-label">Conditions</label>
-              <input class="field-input" formControlName="conditions_text"
-                     placeholder="e.g. Asthma, Diabetes (comma separated)">
+              <input class="field-input" formControlName="conditions_text" placeholder="e.g. Asthma, Diabetes">
             </div>
-
             <div class="field-group">
               <label class="field-label">Medications</label>
-              <input class="field-input" formControlName="medications_text"
-                     placeholder="e.g. Inhaler, Insulin (comma separated)">
+              <input class="field-input" formControlName="medications_text" placeholder="e.g. Inhaler, Insulin">
             </div>
-
             <div class="section-divider">Doctor Details</div>
-
             <div class="form-row">
               <div class="field-group flex-1">
                 <label class="field-label">Doctor Name</label>
@@ -172,89 +155,308 @@ import type { SchoolClass, ApiResponse } from '../../core/models';
               </div>
               <div class="field-group flex-1">
                 <label class="field-label">Doctor Phone</label>
-                <input class="field-input" formControlName="doctor_phone"
-                       placeholder="+91 XXXXX XXXXX">
+                <input class="field-input" formControlName="doctor_phone" placeholder="+91 XXXXX XXXXX">
               </div>
             </div>
-
           </form>
         }
 
-        <!-- ── Step 2: Emergency Contacts ────────────────────────── -->
+        <!-- ── Step 2: Parents ───────────────────────────────────── -->
         @if (currentStep() === 2) {
-          <form [formGroup]="contactForm">
-            <div class="step-intro">
-              <mat-icon style="color:var(--blue)">info_outline</mat-icon>
-              Add at least one emergency contact. The first contact will be set as primary.
-            </div>
+          <div class="step-form">
 
-            <div formArrayName="contacts" class="contacts-list">
-              @for (ctrl of contacts.controls; track $index) {
-                <div [formGroupName]="$index" class="contact-card">
-                  <div class="cc-head">
-                    <div class="cc-num">
-                      @if ($index === 0) {
-                        <span class="primary-tag">Primary</span>
-                      } @else {
-                        <span class="contact-num">Contact {{ $index + 1 }}</span>
-                      }
-                    </div>
-                    @if ($index > 0) {
-                      <button type="button" class="remove-btn" (click)="removeContact($index)">
-                        <mat-icon style="font-size:15px;width:15px;height:15px">delete</mat-icon>
-                        Remove
-                      </button>
+            <!-- Parent 1 -->
+            <div class="parent-card">
+              <div class="pc-head">
+                <div class="pc-title">
+                  <mat-icon style="font-size:16px;width:16px;height:16px;color:var(--blue)">person</mat-icon>
+                  Parent 1 <span class="req-tag">Required</span>
+                </div>
+              </div>
+
+              <form [formGroup]="parent1Form" class="parent-fields">
+                <div class="form-row">
+                  <div class="field-group" style="width:130px">
+                    <label class="field-label">Relation <span class="req">*</span></label>
+                    <select class="field-input" formControlName="relation">
+                      <option value="father">Father</option>
+                      <option value="mother">Mother</option>
+                      <option value="guardian">Guardian</option>
+                      <option value="step_father">Step Father</option>
+                      <option value="step_mother">Step Mother</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div class="field-group flex-1">
+                    <label class="field-label">First Name <span class="req">*</span></label>
+                    <input class="field-input" formControlName="first_name" placeholder="Raj"
+                           [class.err]="parent1Form.get('first_name')?.invalid && parent1Form.get('first_name')?.touched">
+                  </div>
+                  <div class="field-group flex-1">
+                    <label class="field-label">Last Name <span class="req">*</span></label>
+                    <input class="field-input" formControlName="last_name" placeholder="Sharma"
+                           [class.err]="parent1Form.get('last_name')?.invalid && parent1Form.get('last_name')?.touched">
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="field-group flex-1">
+                    <label class="field-label">Mobile <span class="req">*</span></label>
+                    <input class="field-input" formControlName="mobile" placeholder="+91 9876543210"
+                           [class.err]="parent1Form.get('mobile')?.invalid && parent1Form.get('mobile')?.touched">
+                    @if (parent1Form.get('mobile')?.invalid && parent1Form.get('mobile')?.touched) {
+                      <div class="field-error">Required</div>
                     }
                   </div>
+                  <div class="field-group flex-1">
+                    <label class="field-label">Email</label>
+                    <input class="field-input" type="email" formControlName="email" placeholder="parent@email.com">
+                  </div>
+                </div>
 
+                <div class="section-divider">Address</div>
+                <div class="form-row">
+                  <div class="field-group flex-1">
+                    <label class="field-label">Address Line 1</label>
+                    <input class="field-input" formControlName="address_line1" placeholder="House No, Street">
+                  </div>
+                  <div class="field-group flex-1">
+                    <label class="field-label">Address Line 2</label>
+                    <input class="field-input" formControlName="address_line2" placeholder="Area, Landmark">
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="field-group flex-1">
+                    <label class="field-label">City</label>
+                    <input class="field-input" formControlName="city" placeholder="Chennai">
+                  </div>
+                  <div class="field-group flex-1">
+                    <label class="field-label">State</label>
+                    <input class="field-input" formControlName="state" placeholder="Tamil Nadu">
+                  </div>
+                  <div class="field-group" style="width:100px">
+                    <label class="field-label">Pincode</label>
+                    <input class="field-input" formControlName="pincode" placeholder="600001">
+                  </div>
+                </div>
+
+                <div class="section-divider">Professional</div>
+                <div class="form-row">
+                  <div class="field-group flex-1">
+                    <label class="field-label">Alternate Mobile</label>
+                    <input class="field-input" formControlName="mobile_alt" placeholder="+91 XXXXX XXXXX">
+                  </div>
+                  <div class="field-group flex-1">
+                    <label class="field-label">Profession</label>
+                    <input class="field-input" formControlName="profession" placeholder="e.g. Engineer, Doctor">
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="field-group flex-1">
+                    <label class="field-label">Employer / Company</label>
+                    <input class="field-input" formControlName="employer" placeholder="Company name">
+                  </div>
+                  <div class="field-group flex-1">
+                    <label class="field-label">Education</label>
+                    <select class="field-input" formControlName="education">
+                      <option value="">Select…</option>
+                      <option>Below 10th</option>
+                      <option>10th / SSLC</option>
+                      <option>12th / HSC</option>
+                      <option>Diploma</option>
+                      <option>Graduate</option>
+                      <option>Post-Graduate</option>
+                      <option>Doctorate</option>
+                      <option>Other</option>
+                    </select>
+                  </div>
+                  <div class="field-group" style="width:140px">
+                    <label class="field-label">Annual Income (₹)</label>
+                    <input class="field-input" type="number" formControlName="annual_income" placeholder="e.g. 600000">
+                  </div>
+                </div>
+                <div class="form-row" style="align-items:center;gap:16px">
+                  <label class="check-label">
+                    <input type="checkbox" formControlName="can_pickup"> Authorised for Pickup
+                  </label>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Notes</label>
+                  <textarea class="field-input ta" formControlName="notes" rows="2"
+                            placeholder="Any notes about this parent…"></textarea>
+                </div>
+              </form>
+            </div>
+
+            <!-- Parent 2 toggle -->
+            @if (!showParent2()) {
+              <button type="button" class="add-parent-btn" (click)="showParent2.set(true)">
+                <mat-icon style="font-size:16px;width:16px;height:16px">add_circle_outline</mat-icon>
+                Add Second Parent
+              </button>
+            } @else {
+              <div class="parent-card">
+                <div class="pc-head">
+                  <div class="pc-title">
+                    <mat-icon style="font-size:16px;width:16px;height:16px;color:var(--purple)">person</mat-icon>
+                    Parent 2 <span class="opt-tag">Optional</span>
+                  </div>
+                  <button type="button" class="remove-parent-btn" (click)="removeParent2()">
+                    <mat-icon style="font-size:14px;width:14px;height:14px">close</mat-icon>
+                    Remove
+                  </button>
+                </div>
+
+                <form [formGroup]="parent2Form" class="parent-fields">
                   <div class="form-row">
-                    <div class="field-group flex-1">
-                      <label class="field-label">Full Name <span class="req">*</span></label>
-                      <input class="field-input" formControlName="name" placeholder="Raj Sharma"
-                             [class.err]="ctrl.get('name')?.invalid && ctrl.get('name')?.touched">
-                    </div>
-                    <div class="field-group" style="width:140px">
+                    <div class="field-group" style="width:130px">
                       <label class="field-label">Relation <span class="req">*</span></label>
                       <select class="field-input" formControlName="relation">
                         <option value="father">Father</option>
                         <option value="mother">Mother</option>
                         <option value="guardian">Guardian</option>
+                        <option value="step_father">Step Father</option>
+                        <option value="step_mother">Step Mother</option>
                         <option value="other">Other</option>
                       </select>
                     </div>
+                    <div class="field-group flex-1">
+                      <label class="field-label">First Name <span class="req">*</span></label>
+                      <input class="field-input" formControlName="first_name" placeholder="Priya"
+                             [class.err]="parent2Form.get('first_name')?.invalid && parent2Form.get('first_name')?.touched">
+                    </div>
+                    <div class="field-group flex-1">
+                      <label class="field-label">Last Name <span class="req">*</span></label>
+                      <input class="field-input" formControlName="last_name" placeholder="Sharma"
+                             [class.err]="parent2Form.get('last_name')?.invalid && parent2Form.get('last_name')?.touched">
+                    </div>
                   </div>
 
-                  <div class="field-group">
-                    <label class="field-label">Phone Number <span class="req">*</span></label>
-                    <div class="phone-wrap">
-                      <span class="phone-prefix">+91</span>
-                      <input class="field-input phone-input" formControlName="phone"
-                             placeholder="9876543210"
-                             [class.err]="ctrl.get('phone')?.invalid && ctrl.get('phone')?.touched">
+                  <div class="form-row">
+                    <div class="field-group flex-1">
+                      <label class="field-label">Mobile <span class="req">*</span></label>
+                      <input class="field-input" formControlName="mobile" placeholder="+91 9876543210"
+                             [class.err]="parent2Form.get('mobile')?.invalid && parent2Form.get('mobile')?.touched">
                     </div>
-                    @if (ctrl.get('phone')?.invalid && ctrl.get('phone')?.touched) {
-                      <div class="field-error">Valid phone required</div>
-                    }
-                    <div class="field-group">
-                      <label class="field-label">Email </label>
-                      <input class="field-input" type="email" formControlName="email"
-                             placeholder="parent@email.com"
-                             [class.err]="ctrl.get('email')?.invalid && ctrl.get('email')?.touched">
-                      @if (ctrl.get('email')?.invalid && ctrl.get('email')?.touched) {
-                        <div class="field-error">Invalid email address</div>
-                      }
+                    <div class="field-group flex-1">
+                      <label class="field-label">Email</label>
+                      <input class="field-input" type="email" formControlName="email" placeholder="parent@email.com">
                     </div>
                   </div>
-                </div>
-              }
+
+                  <div class="section-divider">Address</div>
+                  <div class="form-row">
+                    <div class="field-group flex-1">
+                      <label class="field-label">Address Line 1</label>
+                      <input class="field-input" formControlName="address_line1" placeholder="House No, Street">
+                    </div>
+                    <div class="field-group flex-1">
+                      <label class="field-label">Address Line 2</label>
+                      <input class="field-input" formControlName="address_line2" placeholder="Area, Landmark">
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="field-group flex-1">
+                      <label class="field-label">City</label>
+                      <input class="field-input" formControlName="city" placeholder="Chennai">
+                    </div>
+                    <div class="field-group flex-1">
+                      <label class="field-label">State</label>
+                      <input class="field-input" formControlName="state" placeholder="Tamil Nadu">
+                    </div>
+                    <div class="field-group" style="width:100px">
+                      <label class="field-label">Pincode</label>
+                      <input class="field-input" formControlName="pincode" placeholder="600001">
+                    </div>
+                  </div>
+
+                  <div class="section-divider">Professional</div>
+                  <div class="form-row">
+                    <div class="field-group flex-1">
+                      <label class="field-label">Alternate Mobile</label>
+                      <input class="field-input" formControlName="mobile_alt" placeholder="+91 XXXXX XXXXX">
+                    </div>
+                    <div class="field-group flex-1">
+                      <label class="field-label">Profession</label>
+                      <input class="field-input" formControlName="profession" placeholder="e.g. Engineer, Doctor">
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="field-group flex-1">
+                      <label class="field-label">Employer / Company</label>
+                      <input class="field-input" formControlName="employer" placeholder="Company name">
+                    </div>
+                    <div class="field-group flex-1">
+                      <label class="field-label">Education</label>
+                      <select class="field-input" formControlName="education">
+                        <option value="">Select…</option>
+                        <option>Below 10th</option>
+                        <option>10th / SSLC</option>
+                        <option>12th / HSC</option>
+                        <option>Diploma</option>
+                        <option>Graduate</option>
+                        <option>Post-Graduate</option>
+                        <option>Doctorate</option>
+                        <option>Other</option>
+                      </select>
+                    </div>
+                    <div class="field-group" style="width:140px">
+                      <label class="field-label">Annual Income (₹)</label>
+                      <input class="field-input" type="number" formControlName="annual_income" placeholder="e.g. 600000">
+                    </div>
+                  </div>
+                  <div class="form-row" style="align-items:center;gap:16px">
+                    <label class="check-label">
+                      <input type="checkbox" formControlName="can_pickup"> Authorised for Pickup
+                    </label>
+                  </div>
+                  <div class="field-group">
+                    <label class="field-label">Notes</label>
+                    <textarea class="field-input ta" formControlName="notes" rows="2"
+                              placeholder="Any notes about this parent…"></textarea>
+                  </div>
+                </form>
+              </div>
+            }
+
+            <!-- Emergency contact selection -->
+            <div class="emergency-section">
+              <div class="es-title">
+                <mat-icon style="font-size:15px;width:15px;height:15px;color:var(--red)">emergency</mat-icon>
+                Emergency Contact
+              </div>
+              <div class="es-options">
+                <label class="radio-option" [class.selected]="emergencyContact() === 'parent1'"
+                       (click)="emergencyContact.set('parent1')">
+                  <div class="ro-radio" [class.checked]="emergencyContact() === 'parent1'"></div>
+                  <div class="ro-label">
+                    <div class="ro-name">
+                      {{ parent1Name() || 'Parent 1' }}
+                      <span class="ro-rel">({{ parent1Form.value.relation | titlecase }})</span>
+                    </div>
+                    <div class="ro-phone">{{ parent1Form.value.mobile || '—' }}</div>
+                  </div>
+                </label>
+
+                @if (showParent2()) {
+                  <label class="radio-option" [class.selected]="emergencyContact() === 'parent2'"
+                         (click)="emergencyContact.set('parent2')">
+                    <div class="ro-radio" [class.checked]="emergencyContact() === 'parent2'"></div>
+                    <div class="ro-label">
+                      <div class="ro-name">
+                        {{ parent2Name() || 'Parent 2' }}
+                        <span class="ro-rel">({{ parent2Form.value.relation | titlecase }})</span>
+                      </div>
+                      <div class="ro-phone">{{ parent2Form.value.mobile || '—' }}</div>
+                    </div>
+                  </label>
+                }
+              </div>
             </div>
 
-            <button type="button" class="add-contact-btn" (click)="addContact()">
-              <mat-icon style="font-size:16px;width:16px;height:16px">add_circle_outline</mat-icon>
-              Add Another Contact
-            </button>
-          </form>
+          </div>
         }
+
         <!-- ── Step 3: Review ────────────────────────────────────── -->
         @if (currentStep() === 3) {
           <div class="review-panel">
@@ -265,51 +467,53 @@ import type { SchoolClass, ApiResponse } from '../../core/models';
                 Student Details
               </div>
               <div class="rs-grid">
-                <div class="rs-item">
-                  <div class="rs-label">Full Name</div>
-                  <div class="rs-value">{{ basicForm.value.first_name }} {{ basicForm.value.last_name }}</div>
-                </div>
-                <div class="rs-item">
-                  <div class="rs-label">Date of Birth</div>
-                  <div class="rs-value">{{ basicForm.value.dob | date:'d MMM yyyy' }}</div>
-                </div>
-                <div class="rs-item">
-                  <div class="rs-label">Gender</div>
-                  <div class="rs-value">{{ (basicForm.value.gender | titlecase) || '—' }}</div>
-                </div>
-                <div class="rs-item">
-                  <div class="rs-label">Class</div>
-                  <div class="rs-value">{{ getClassName(basicForm.value.class_id) }}</div>
-                </div>
-                <div class="rs-item">
-                  <div class="rs-label">Blood Group</div>
-                  <div class="rs-value">{{ basicForm.value.blood_group || 'Unknown' }}</div>
-                </div>
-                <div class="rs-item">
-                  <div class="rs-label">Nationality</div>
-                  <div class="rs-value">{{ basicForm.value.nationality || '—' }}</div>
-                </div>
+                <div class="rs-item"><div class="rs-label">Full Name</div>
+                  <div class="rs-value">{{ basicForm.value.first_name }} {{ basicForm.value.last_name }}</div></div>
+                <div class="rs-item"><div class="rs-label">Date of Birth</div>
+                  <div class="rs-value">{{ basicForm.value.dob | date:'d MMM yyyy' }}</div></div>
+                <div class="rs-item"><div class="rs-label">Gender</div>
+                  <div class="rs-value">{{ (basicForm.value.gender | titlecase) || '—' }}</div></div>
+                <div class="rs-item"><div class="rs-label">Class</div>
+                  <div class="rs-value">{{ getClassName(basicForm.value.class_id) }}</div></div>
+                <div class="rs-item"><div class="rs-label">Blood Group</div>
+                  <div class="rs-value">{{ basicForm.value.blood_group || 'Unknown' }}</div></div>
+                <div class="rs-item"><div class="rs-label">Nationality</div>
+                  <div class="rs-value">{{ basicForm.value.nationality || '—' }}</div></div>
               </div>
             </div>
 
             <div class="review-section">
               <div class="rs-title">
-                <mat-icon style="font-size:16px;width:16px;height:16px;color:var(--blue)">contacts</mat-icon>
-                Emergency Contacts
+                <mat-icon style="font-size:16px;width:16px;height:16px;color:var(--blue)">family_restroom</mat-icon>
+                Parents
               </div>
-              <div class="contacts-review">
-                @for (c of contactForm.value.contacts; track $index) {
-                  <div class="cr-item">
-                    <div class="cr-av">{{ c.name?.[0] ?? '?' }}</div>
-                    <div class="cr-info">
-                      <div class="cr-name">{{ c.name }}</div>
-                      <div class="cr-detail">{{ (c.relation | titlecase) }} · {{ c.phone }}</div>
-                      @if (c.email) { <div class="cr-detail" style="color:var(--blue)">{{ c.email }}</div> }
+              <div class="parents-review">
+                <div class="pr-item">
+                  <div class="pr-av blue">{{ parent1Form.value.first_name?.[0] ?? 'P' }}</div>
+                  <div class="pr-info">
+                    <div class="pr-name">{{ parent1Form.value.first_name }} {{ parent1Form.value.last_name }}</div>
+                    <div class="pr-detail">{{ parent1Form.value.relation | titlecase }} · {{ parent1Form.value.mobile }}</div>
+                    @if (parent1Form.value.email) { <div class="pr-email">{{ parent1Form.value.email }}</div> }
+                    @if (parent1Form.value.city) { <div class="pr-detail">{{ parent1Form.value.city }}{{ parent1Form.value.state ? ', ' + parent1Form.value.state : '' }}</div> }
+                  </div>
+                  <div class="pr-badges">
+                    <span class="badge primary">Primary</span>
+                    @if (emergencyContact() === 'parent1') { <span class="badge emergency">Emergency</span> }
+                  </div>
+                </div>
 
+                @if (showParent2()) {
+                  <div class="pr-item">
+                    <div class="pr-av purple">{{ parent2Form.value.first_name?.[0] ?? 'P' }}</div>
+                    <div class="pr-info">
+                      <div class="pr-name">{{ parent2Form.value.first_name }} {{ parent2Form.value.last_name }}</div>
+                      <div class="pr-detail">{{ parent2Form.value.relation | titlecase }} · {{ parent2Form.value.mobile }}</div>
+                      @if (parent2Form.value.email) { <div class="pr-email">{{ parent2Form.value.email }}</div> }
+                      @if (parent2Form.value.city) { <div class="pr-detail">{{ parent2Form.value.city }}{{ parent2Form.value.state ? ', ' + parent2Form.value.state : '' }}</div> }
                     </div>
-                    @if ($index === 0) {
-                      <span class="primary-tag">Primary</span>
-                    }
+                    <div class="pr-badges">
+                      @if (emergencyContact() === 'parent2') { <span class="badge emergency">Emergency</span> }
+                    </div>
                   </div>
                 }
               </div>
@@ -326,20 +530,18 @@ import type { SchoolClass, ApiResponse } from '../../core/models';
 
       </div>
 
-      <!-- Footer actions -->
+      <!-- Footer -->
       <div class="dialog-footer">
         <button class="btn-ghost" mat-dialog-close>Cancel</button>
         <div style="display:flex;gap:8px">
           @if (currentStep() > 0) {
             <button class="btn-outline" (click)="prevStep()">
-              <mat-icon style="font-size:15px;width:15px;height:15px">arrow_back</mat-icon>
-              Back
+              <mat-icon style="font-size:15px;width:15px;height:15px">arrow_back</mat-icon> Back
             </button>
           }
           @if (currentStep() < 3) {
             <button class="btn-primary" (click)="nextStep()" [disabled]="!canAdvance()">
-              Continue
-              <mat-icon style="font-size:15px;width:15px;height:15px">arrow_forward</mat-icon>
+              Continue <mat-icon style="font-size:15px;width:15px;height:15px">arrow_forward</mat-icon>
             </button>
           }
           @if (currentStep() === 3) {
@@ -347,10 +549,7 @@ import type { SchoolClass, ApiResponse } from '../../core/models';
               @if (submitting()) {
                 <mat-progress-spinner diameter="16" mode="indeterminate" style="--mdc-circular-progress-active-indicator-color:#fff" />
               } @else {
-                <ng-container>
-                  <mat-icon style="font-size:15px;width:15px;height:15px">check</mat-icon>
-                  Enrol Student
-                </ng-container>
+                <mat-icon style="font-size:15px;width:15px;height:15px">check</mat-icon> Enrol Student
               }
             </button>
           }
@@ -360,236 +559,79 @@ import type { SchoolClass, ApiResponse } from '../../core/models';
     </div>
   `,
   styles: [`
-    .dialog-shell {
-      width: 560px;
-      max-width: 100%;
-      display: flex;
-      flex-direction: column;
-      max-height: 90vh;
-    }
+    .dialog-shell { width: 580px; max-width: 100%; display: flex; flex-direction: column; max-height: 90vh; }
 
-    /* Header */
-    .dialog-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 20px 24px 16px;
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-    .dh-icon {
-      width: 36px; height: 36px;
-      border-radius: 9px;
-      background: var(--blue-light);
-      color: var(--blue);
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-      mat-icon { font-size: 18px; width: 18px; height: 18px; }
-    }
-    .dh-title { font-size: 15px; font-weight: 600; color: var(--text); }
-    .dh-sub   { font-size: 11px; color: var(--text-3); margin-top: 2px; }
-    .dh-close {
-      margin-left: auto;
-      background: none; border: none;
-      width: 28px; height: 28px;
-      border-radius: 6px;
-      cursor: pointer; color: var(--text-3);
-      display: flex; align-items: center; justify-content: center;
-      &:hover { background: var(--bg); color: var(--text-2); }
-      mat-icon { font-size: 18px; width: 18px; height: 18px; }
-    }
+    .dialog-header { display:flex; align-items:center; gap:12px; padding:20px 24px 16px; border-bottom:1px solid var(--border); flex-shrink:0; }
+    .dh-icon { width:36px; height:36px; border-radius:9px; background:var(--blue-light); color:var(--blue); display:flex; align-items:center; justify-content:center; flex-shrink:0; mat-icon { font-size:18px; width:18px; height:18px; } }
+    .dh-title { font-size:15px; font-weight:600; color:var(--text); }
+    .dh-sub   { font-size:11px; color:var(--text-3); margin-top:2px; }
+    .dh-close { margin-left:auto; background:none; border:none; width:28px; height:28px; border-radius:6px; cursor:pointer; color:var(--text-3); display:flex; align-items:center; justify-content:center; &:hover { background:var(--bg); } mat-icon { font-size:18px; width:18px; height:18px; } }
 
-    /* Step track */
-    .step-track {
-      display: flex;
-      align-items: center;
-      padding: 14px 24px;
-      background: var(--bg);
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-    .step-node {
-      display: flex; align-items: center; gap: 7px;
-      .sn-circle {
-        width: 22px; height: 22px;
-        border-radius: 50%;
-        border: 1.5px solid var(--border);
-        background: #fff;
-        color: var(--text-3);
-        font-size: 11px; font-weight: 600;
-        display: flex; align-items: center; justify-content: center;
-        flex-shrink: 0;
-        transition: all .2s;
-      }
-      .sn-label { font-size: 11px; color: var(--text-3); font-weight: 500; white-space: nowrap; }
+    .step-track { display:flex; align-items:center; padding:14px 24px; background:var(--bg); border-bottom:1px solid var(--border); flex-shrink:0; }
+    .step-node { display:flex; align-items:center; gap:7px; .sn-circle { width:22px; height:22px; border-radius:50%; border:1.5px solid var(--border); background:#fff; color:var(--text-3); font-size:11px; font-weight:600; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:all .2s; } .sn-label { font-size:11px; color:var(--text-3); font-weight:500; white-space:nowrap; } &.active { .sn-circle { background:var(--blue); border-color:var(--blue); color:#fff; } .sn-label { color:var(--blue); font-weight:600; } } &.done { .sn-circle { background:var(--green); border-color:var(--green); color:#fff; } .sn-label { color:var(--text-2); } } }
+    .step-line { flex:1; height:1.5px; background:var(--border); margin:0 8px; &.done { background:var(--green); } }
 
-      &.active {
-        .sn-circle { background: var(--blue); border-color: var(--blue); color: #fff; }
-        .sn-label  { color: var(--blue); font-weight: 600; }
-      }
-      &.done {
-        .sn-circle { background: var(--green); border-color: var(--green); color: #fff; }
-        .sn-label  { color: var(--text-2); }
-      }
-    }
-    .step-line {
-      flex: 1; height: 1.5px; background: var(--border); margin: 0 8px;
-      &.done { background: var(--green); }
-    }
+    .dialog-body { flex:1; overflow-y:auto; padding:20px 24px; }
 
-    /* Body */
-    .dialog-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
+    .step-form   { display:flex; flex-direction:column; gap:14px; }
+    .form-row    { display:flex; gap:12px; }
+    .flex-1      { flex:1; min-width:0; }
+    .field-group { display:flex; flex-direction:column; gap:5px; }
+    .field-label { font-size:12px; font-weight:500; color:var(--text-2); .req { color:var(--red); } .hint { font-size:11px; color:var(--text-4); font-weight:400; } }
+    .field-input { width:100%; height:36px; padding:0 10px; background:#fff; border:1px solid var(--border); border-radius:7px; font-size:13px; color:var(--text); outline:none; font-family:inherit; &::placeholder { color:var(--text-4); } &:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(37,99,235,.1); } &.err { border-color:var(--red); } }
+    select.field-input { cursor:pointer; }
+    .field-error { font-size:11px; color:var(--red); }
+    .section-divider { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--text-4); padding-top:4px; border-top:1px solid var(--border-light); margin-top:4px; }
 
-    /* Form */
-    .step-form   { display: flex; flex-direction: column; gap: 14px; }
-    .form-row    { display: flex; gap: 12px; }
-    .flex-1      { flex: 1; min-width: 0; }
-    .field-group { display: flex; flex-direction: column; gap: 5px; }
+    /* Parents step */
+    .parent-card { border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+    .pc-head { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; background:var(--bg); border-bottom:1px solid var(--border); }
+    .pc-title { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; color:var(--text); }
+    .req-tag  { font-size:10px; font-weight:600; background:var(--blue-light); color:var(--blue); padding:1px 6px; border-radius:4px; }
+    .opt-tag  { font-size:10px; font-weight:600; background:var(--purple-light); color:var(--purple); padding:1px 6px; border-radius:4px; }
+    .parent-fields { padding:14px; display:flex; flex-direction:column; gap:12px; }
+    .remove-parent-btn { display:flex; align-items:center; gap:4px; background:none; border:none; cursor:pointer; color:var(--red); font-size:12px; padding:4px 8px; border-radius:5px; &:hover { background:var(--red-light); } }
 
-    .field-label {
-      font-size: 12px; font-weight: 500; color: var(--text-2);
-      .req  { color: var(--red); }
-      .hint { font-size: 11px; color: var(--text-4); font-weight: 400; }
-    }
+    .add-parent-btn { display:flex; align-items:center; gap:6px; background:none; border:1.5px dashed #D1D5DB; border-radius:8px; width:100%; padding:10px; font-size:12.5px; color:var(--blue); cursor:pointer; justify-content:center; font-weight:500; &:hover { background:var(--blue-light); border-color:var(--blue); } }
+    .field-input.ta { height:auto; padding:8px 10px; resize:vertical; }
+    .check-label { display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-2); cursor:pointer; }
 
-    .field-input {
-      width: 100%;
-      height: 36px;
-      padding: 0 10px;
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 7px;
-      font-size: 13px;
-      color: var(--text);
-      outline: none;
-      transition: border-color .15s, box-shadow .15s;
-      font-family: inherit;
-
-      &::placeholder { color: var(--text-4); }
-      &:focus {
-        border-color: var(--blue);
-        box-shadow: 0 0 0 3px rgba(37,99,235,.1);
-      }
-      &.err { border-color: var(--red); }
-    }
-    select.field-input { cursor: pointer; }
-
-    .field-error { font-size: 11px; color: var(--red); }
-    .field-hint  { font-size: 11px; color: var(--text-3); margin-top: 3px; }
-
-    /* Phone field */
-    .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .section-divider { font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-4);padding-top:4px;border-top:1px solid var(--border-light);margin-top:4px; }
-    .phone-wrap { display: flex; align-items: center; gap: 0; }
-    .phone-prefix {
-      height: 36px; padding: 0 10px;
-      background: var(--bg); border: 1px solid var(--border); border-right: none;
-      border-radius: 7px 0 0 7px; font-size: 13px; color: var(--text-3);
-      display: flex; align-items: center; flex-shrink: 0;
-    }
-    .phone-input { border-radius: 0 7px 7px 0 !important; }
-
-    /* Contacts */
-    .step-intro {
-      display: flex; align-items: flex-start; gap: 8px;
-      background: var(--blue-light); border-radius: 8px;
-      padding: 10px 12px; font-size: 12.5px; color: #1E40AF;
-      margin-bottom: 14px;
-    }
-
-    .contacts-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
-    .contact-card  {
-      border: 1px solid var(--border); border-radius: 9px;
-      padding: 14px; background: var(--bg);
-    }
-    .cc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-    .primary-tag {
-      background: var(--amber-light); color: #92400E;
-      font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 4px;
-    }
-    .contact-num { font-size: 12px; font-weight: 500; color: var(--text-3); }
-    .remove-btn {
-      display: flex; align-items: center; gap: 4px;
-      background: none; border: none; cursor: pointer;
-      color: var(--red); font-size: 12px;
-      padding: 4px 8px; border-radius: 5px;
-      &:hover { background: var(--red-light); }
-    }
-
-    .add-contact-btn {
-      display: flex; align-items: center; gap: 6px;
-      background: none; border: 1px dashed var(--border-light); /* was --border */
-      border: 1px dashed #D1D5DB;
-      border-radius: 8px; width: 100%; padding: 10px;
-      font-size: 12.5px; color: var(--blue); cursor: pointer;
-      justify-content: center; font-weight: 500;
-      &:hover { background: var(--blue-light); border-color: var(--blue-mid); }
-    }
+    /* Emergency section */
+    .emergency-section { border:1px solid #FCA5A5; border-radius:10px; overflow:hidden; }
+    .es-title { display:flex; align-items:center; gap:6px; padding:10px 14px; background:#FFF5F5; border-bottom:1px solid #FCA5A5; font-size:12px; font-weight:600; color:#991B1B; }
+    .es-options { padding:10px; display:flex; flex-direction:column; gap:6px; }
+    .radio-option { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:8px; border:1.5px solid var(--border); cursor:pointer; transition:all .15s; &:hover { border-color:var(--blue); background:var(--blue-light); } &.selected { border-color:var(--blue); background:var(--blue-light); } }
+    .ro-radio { width:16px; height:16px; border-radius:50%; border:2px solid var(--border); flex-shrink:0; transition:all .15s; &.checked { border-color:var(--blue); border-width:5px; } }
+    .ro-label { flex:1; }
+    .ro-name  { font-size:13px; font-weight:500; color:var(--text); }
+    .ro-rel   { font-size:11px; color:var(--text-3); font-weight:400; }
+    .ro-phone { font-size:12px; color:var(--text-3); margin-top:1px; }
 
     /* Review */
-    .review-panel { display: flex; flex-direction: column; gap: 16px; }
-    .review-section { border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
-    .rs-title {
-      display: flex; align-items: center; gap: 7px;
-      padding: 11px 14px; background: var(--bg);
-      border-bottom: 1px solid var(--border);
-      font-size: 12.5px; font-weight: 600; color: var(--text-2);
-    }
-    .rs-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 0; }
-    .rs-item {
-      padding: 10px 14px;
-      border-right: 1px solid var(--border-light);
-      border-bottom: 1px solid var(--border-light);
-      &:nth-child(3n) { border-right: none; }
-      &:nth-last-child(-n+3) { border-bottom: none; }
-    }
-    .rs-label { font-size: 10px; text-transform: uppercase; letter-spacing: .3px; color: var(--text-4); font-weight: 500; margin-bottom: 3px; }
-    .rs-value { font-size: 13px; font-weight: 500; color: var(--text); }
+    .review-panel { display:flex; flex-direction:column; gap:16px; }
+    .review-section { border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+    .rs-title { display:flex; align-items:center; gap:7px; padding:11px 14px; background:var(--bg); border-bottom:1px solid var(--border); font-size:12.5px; font-weight:600; color:var(--text-2); }
+    .rs-grid { display:grid; grid-template-columns:repeat(3,1fr); }
+    .rs-item { padding:10px 14px; border-right:1px solid var(--border-light); border-bottom:1px solid var(--border-light); &:nth-child(3n) { border-right:none; } &:nth-last-child(-n+3) { border-bottom:none; } }
+    .rs-label { font-size:10px; text-transform:uppercase; letter-spacing:.3px; color:var(--text-4); font-weight:500; margin-bottom:3px; }
+    .rs-value { font-size:13px; font-weight:500; color:var(--text); }
 
-    .contacts-review { padding: 8px; display: flex; flex-direction: column; gap: 4px; }
-    .cr-item { display: flex; align-items: center; gap: 10px; padding: 8px 6px; border-radius: 7px; background: var(--bg); }
-    .cr-av { width: 28px; height: 28px; border-radius: 7px; background: var(--blue); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0; }
-    .cr-info { flex: 1; min-width: 0; }
-    .cr-name   { font-size: 13px; font-weight: 500; color: var(--text); }
-    .cr-detail { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+    .parents-review { padding:8px; display:flex; flex-direction:column; gap:6px; }
+    .pr-item { display:flex; align-items:flex-start; gap:10px; padding:10px; border-radius:8px; background:var(--bg); }
+    .pr-av { width:32px; height:32px; border-radius:8px; color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:600; flex-shrink:0; &.blue { background:var(--blue); } &.purple { background:var(--purple); } }
+    .pr-info { flex:1; }
+    .pr-name   { font-size:13px; font-weight:500; color:var(--text); }
+    .pr-detail { font-size:11px; color:var(--text-3); margin-top:2px; }
+    .pr-email  { font-size:11px; color:var(--blue); margin-top:2px; }
+    .pr-badges { display:flex; flex-direction:column; gap:4px; align-items:flex-end; }
+    .badge { font-size:10px; font-weight:600; padding:2px 7px; border-radius:4px; white-space:nowrap; &.primary { background:var(--blue-light); color:var(--blue); } &.emergency { background:#FFF5F5; color:#991B1B; border:1px solid #FCA5A5; } }
 
-    .error-banner {
-      display: flex; align-items: center; gap: 8px;
-      background: var(--red-light); border: 1px solid #FECACA;
-      color: #991B1B; padding: 10px 12px; border-radius: 8px; font-size: 12.5px;
-    }
+    .error-banner { display:flex; align-items:center; gap:8px; background:var(--red-light); border:1px solid #FECACA; color:#991B1B; padding:10px 12px; border-radius:8px; font-size:12.5px; }
 
-    /* Footer */
-    .dialog-footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 24px;
-      border-top: 1px solid var(--border);
-      flex-shrink: 0;
-      background: var(--bg);
-    }
-    .btn-ghost {
-      background: none; border: none; cursor: pointer;
-      font-size: 13px; color: var(--text-3); padding: 0 8px; height: 36px; border-radius: 7px;
-      &:hover { background: var(--border-light); color: var(--text-2); }
-    }
-    .btn-outline {
-      display: flex; align-items: center; gap: 5px;
-      background: #fff; border: 1px solid var(--border);
-      color: var(--text-2); border-radius: 8px; height: 36px; padding: 0 14px;
-      font-size: 13px; font-weight: 500; cursor: pointer;
-      &:hover { background: var(--bg); }
-    }
-    .btn-primary {
-      display: flex; align-items: center; gap: 6px;
-      background: var(--blue); color: #fff;
-      border: none; border-radius: 8px; height: 36px; padding: 0 18px;
-      font-size: 13px; font-weight: 500; cursor: pointer;
-      transition: background .15s;
-      &:hover:not(:disabled) { background: #1D4ED8; }
-      &:disabled { opacity: .6; cursor: not-allowed; }
-    }
+    .dialog-footer { display:flex; align-items:center; justify-content:space-between; padding:14px 24px; border-top:1px solid var(--border); flex-shrink:0; background:var(--bg); }
+    .btn-ghost { background:none; border:none; cursor:pointer; font-size:13px; color:var(--text-3); padding:0 8px; height:36px; border-radius:7px; &:hover { background:var(--border-light); } }
+    .btn-outline { display:flex; align-items:center; gap:5px; background:#fff; border:1px solid var(--border); color:var(--text-2); border-radius:8px; height:36px; padding:0 14px; font-size:13px; font-weight:500; cursor:pointer; &:hover { background:var(--bg); } }
+    .btn-primary { display:flex; align-items:center; gap:6px; background:var(--blue); color:#fff; border:none; border-radius:8px; height:36px; padding:0 18px; font-size:13px; font-weight:500; cursor:pointer; &:hover:not(:disabled) { background:#1D4ED8; } &:disabled { opacity:.6; cursor:not-allowed; } }
   `],
 })
 export class EnrolStudentDialogComponent implements OnInit {
@@ -597,25 +639,26 @@ export class EnrolStudentDialogComponent implements OnInit {
   private api       = inject(ApiService);
   private dialogRef = inject(MatDialogRef<EnrolStudentDialogComponent>);
 
-  classes    = signal<SchoolClass[]>([]);
-  routes     = signal<any[]>([]);
-  routeStops = signal<any[]>([]);
-  submitting = signal(false);
-  error      = signal('');
-  currentStep = signal(0);
+  classes      = signal<SchoolClass[]>([]);
+  submitting   = signal(false);
+  error        = signal('');
+  currentStep  = signal(0);
+  showParent2  = signal(false);
+  emergencyContact = signal<'parent1' | 'parent2'>('parent1');
 
-  stepLabels = ['Basic Info', 'Medical', 'Emergency Contact', 'Review & Confirm'];
+  stepLabels = ['Basic Info', 'Medical', 'Parents', 'Review & Confirm'];
   bloodGroups = ['A+','A-','B+','B-','AB+','AB-','O+','O-'];
 
   basicForm = this.fb.group({
-    first_name:     ['', Validators.required],
-    last_name:      ['', Validators.required],
-    dob:            ['', Validators.required],
-    gender:         [''],
-    class_id:       [''],
-    admission_date: [new Date().toISOString().slice(0, 10)],
-    blood_group:    [''],
-    nationality:    ['Indian'],
+    first_name:       ['', Validators.required],
+    last_name:        [''],
+    dob:              ['', Validators.required],
+    gender:           [''],
+    class_id:         [''],
+    admission_date:   [new Date().toISOString().slice(0, 10)],
+    blood_group:      [''],
+    nationality:      ['Indian'],
+    mother_tongue:    [''],
     allergies_text:   [''],
     dietary_notes:    [''],
     conditions_text:  [''],
@@ -624,17 +667,22 @@ export class EnrolStudentDialogComponent implements OnInit {
     doctor_phone:     [''],
   });
 
-  contactForm = this.fb.group({
-    contacts: this.fb.array([this.newContact()]),
-  });
+  parent1Form = this.newParentForm('father');
+  parent2Form = this.newParentForm('mother');
 
-  transportForm = this.fb.group({
-    route_id:       [''],
-    pickup_stop_id: [''],
-    drop_stop_id:   [''],
-  });
+  private basicStatus   = toSignal(this.basicForm.statusChanges,    { initialValue: this.basicForm.status    });
+  private parent1Status = toSignal(this.parent1Form.statusChanges,  { initialValue: this.parent1Form.status  });
+  private parent2Status = toSignal(this.parent2Form.statusChanges,  { initialValue: this.parent2Form.status  });
 
-  get contacts(): FormArray { return this.contactForm.get('contacts') as FormArray; }
+  canAdvance = computed(() => {
+    if (this.currentStep() === 0) return this.basicStatus() !== 'INVALID';
+    if (this.currentStep() === 2) {
+      if (this.parent1Status() === 'INVALID') return false;
+      if (this.showParent2() && this.parent2Status() === 'INVALID') return false;
+      return true;
+    }
+    return true;
+  });
 
   ngOnInit() {
     this.api.get<ApiResponse<SchoolClass[]>>('/students/classes').subscribe({
@@ -642,110 +690,126 @@ export class EnrolStudentDialogComponent implements OnInit {
     });
   }
 
-  newContact() {
+  private newParentForm(defaultRelation: string): FormGroup {
     return this.fb.group({
-      name:     ['', Validators.required],
-      relation: ['father'],
-      phone:    ['', [Validators.required, Validators.pattern(/^[0-9]{10}$/)]],
-      email:    ['', [Validators.email]],
+      relation:      [defaultRelation],
+      first_name:    ['', Validators.required],
+      last_name:     ['', Validators.required],
+      mobile:        ['', Validators.required],
+      mobile_alt:    [''],
+      email:         ['', Validators.email],
+      address_line1: [''],
+      address_line2: [''],
+      city:          [''],
+      state:         [''],
+      country:       ['India'],
+      pincode:       [''],
+      profession:    [''],
+      employer:      [''],
+      annual_income: [null as number | null],
+      education:     [''],
+      can_pickup:    [true],
+      notes:         [''],
     });
   }
 
-  addContact()             { this.contacts.push(this.newContact()); }
-  removeContact(i: number) { this.contacts.removeAt(i); }
+  parent1Name(): string {
+    const v = this.parent1Form.value;
+    return [v.first_name, v.last_name].filter(Boolean).join(' ');
+  }
 
-  canAdvance(): boolean {
-    if (this.currentStep() === 0) return this.basicForm.valid;
-    if (this.currentStep() === 2) return this.contactForm.valid;
-    return true;
+  parent2Name(): string {
+    const v = this.parent2Form.value;
+    return [v.first_name, v.last_name].filter(Boolean).join(' ');
+  }
+
+  removeParent2() {
+    this.showParent2.set(false);
+    this.parent2Form.reset({ relation: 'mother', country: 'India' });
+    if (this.emergencyContact() === 'parent2') this.emergencyContact.set('parent1');
   }
 
   nextStep() {
     if (this.currentStep() === 0) { this.basicForm.markAllAsTouched(); if (!this.basicForm.valid) return; }
-    if (this.currentStep() === 2) { this.contactForm.markAllAsTouched(); if (!this.contactForm.valid) return; }
-
+    if (this.currentStep() === 2) {
+      this.parent1Form.markAllAsTouched();
+      if (this.showParent2()) this.parent2Form.markAllAsTouched();
+      if (!this.canAdvance()) return;
+    }
     this.currentStep.update(s => s + 1);
   }
 
-  loadRoutes() {
-    this.api.get<any>('/transport/routes').subscribe({
-      next: (res: any) => this.routes.set(res.data ?? []),
-      error: () => {},
-    });
-  }
-
-  onRouteChange(routeId: string) {
-    this.transportForm.patchValue({ pickup_stop_id: '', drop_stop_id: '' });
-    if (!routeId) { this.routeStops.set([]); return; }
-    this.api.get<any>('/transport/routes/' + routeId).subscribe({
-      next: (res: any) => this.routeStops.set(res.data?.stops ?? []),
-      error: () => {},
-    });
-  }
-
   prevStep() { this.currentStep.update(s => s - 1); }
-
-  getRouteName(id: string): string {
-    return this.routes().find(r => r.id === id)?.name ?? '';
-  }
 
   getClassName(id: string | null | undefined): string {
     if (!id) return 'Unassigned';
     return this.classes().find(c => c.id === id)?.name ?? 'Unassigned';
   }
 
+  private buildParent(form: FormGroup, isPrimary: boolean, isEmergency: boolean) {
+    const v = form.value;
+    const p: Record<string, unknown> = {
+      relation: v.relation, first_name: v.first_name, last_name: v.last_name,
+      mobile: v.mobile, is_primary: isPrimary, is_emergency_contact: isEmergency,
+      can_pickup: v.can_pickup ?? true,
+    };
+    if (v.email?.trim())         p['email']         = v.email.trim();
+    if (v.mobile_alt?.trim())    p['mobile_alt']    = v.mobile_alt.trim();
+    if (v.address_line1?.trim()) p['address_line1'] = v.address_line1.trim();
+    if (v.address_line2?.trim()) p['address_line2'] = v.address_line2.trim();
+    if (v.city?.trim())          p['city']          = v.city.trim();
+    if (v.state?.trim())         p['state']         = v.state.trim();
+    if (v.country?.trim())       p['country']       = v.country.trim();
+    if (v.pincode?.trim())       p['pincode']       = v.pincode.trim();
+    if (v.profession?.trim())    p['profession']    = v.profession.trim();
+    if (v.employer?.trim())      p['employer']      = v.employer.trim();
+    if (v.annual_income)         p['annual_income'] = +v.annual_income;
+    if (v.education)             p['education']     = v.education;
+    if (v.notes?.trim())         p['notes']         = v.notes.trim();
+    return p;
+  }
+
   submit() {
     this.submitting.set(true);
     this.error.set('');
 
-    const basic    = this.basicForm.value;
-    const contacts = this.contactForm.value.contacts!.map((c: any, i: number) => ({
-      name: c.name, relation: c.relation, phone: '+91' + c.phone, email: c.email?.trim() || undefined, is_primary: i === 0,
-    }));
+    const basic = this.basicForm.value;
+    const split = (s: string) => s ? s.split(',').map((x: string) => x.trim()).filter(Boolean) : [];
 
-    const allergies = basic.allergies_text
-      ? basic.allergies_text.split(',').map((s: string) => s.trim()).filter(Boolean)
-      : [];
+    const parents = [
+      this.buildParent(this.parent1Form, true, this.emergencyContact() === 'parent1'),
+    ];
+    if (this.showParent2()) {
+      parents.push(this.buildParent(this.parent2Form, false, this.emergencyContact() === 'parent2'));
+    }
 
     const payload: Record<string, unknown> = {
       first_name: basic.first_name,
-      last_name:  basic.last_name,
+      ...(basic.last_name ? { last_name: basic.last_name } : {}),
       dob:        basic.dob,
-      admission_date: basic.admission_date,
-      emergency_contacts: contacts,
+      parents,
+      medical_notes: {
+        conditions:  split(basic.conditions_text  ?? ''),
+        medications: split(basic.medications_text ?? ''),
+        ...(basic.doctor_name?.trim()  ? { doctor_name:  basic.doctor_name.trim()  } : {}),
+        ...(basic.doctor_phone?.trim() ? { doctor_phone: basic.doctor_phone.trim() } : {}),
+      },
     };
 
+    if (basic.admission_date) payload['admission_date'] = basic.admission_date;
     if (basic.gender)        payload['gender']        = basic.gender;
     if (basic.class_id)      payload['class_id']      = basic.class_id;
     if (basic.blood_group)   payload['blood_group']   = basic.blood_group;
     if (basic.nationality)   payload['nationality']   = basic.nationality;
-    if (allergies.length)         payload['allergies']     = allergies;
-    if (basic.dietary_notes)      payload['dietary_notes'] = basic.dietary_notes;
-    const split = (s: string) => s ? s.split(',').map((x: string) => x.trim()).filter(Boolean) : [];
-    payload['medical_notes'] = {
-      conditions:   split(basic.conditions_text  ?? ''),
-      medications:  split(basic.medications_text ?? ''),
-      ...(basic.doctor_name?.trim()  ? { doctor_name:  basic.doctor_name.trim()  } : {}),
-      ...(basic.doctor_phone?.trim() ? { doctor_phone: basic.doctor_phone.trim() } : {}),
-    };
+    if (basic.mother_tongue) payload['mother_tongue'] = basic.mother_tongue;
+    if (basic.dietary_notes) payload['dietary_notes'] = basic.dietary_notes;
+    const allergies = split(basic.allergies_text ?? '');
+    if (allergies.length)    payload['allergies']     = allergies;
 
     this.api.post('/students', payload).subscribe({
       next: (res: any) => {
-        const student = res.data;
-        const t = this.transportForm.value;
-        // Assign transport if selected
-        if (t.route_id) {
-          this.api.post<any>('/transport/students/assign', {
-            student_id:     student.id,
-            route_id:       t.route_id,
-            stop_no:        1,
-            pickup_stop_id: t.pickup_stop_id || undefined,
-            drop_stop_id:   t.drop_stop_id   || undefined,
-
-          }).subscribe({ next: () => {}, error: () => {} });
-        }
         this.submitting.set(false);
-        this.dialogRef.close(student);
+        this.dialogRef.close(res.data);
       },
       error: (err: any) => {
         this.submitting.set(false);

@@ -9,7 +9,7 @@ import { DecimalPipe } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
 import type { Student, SchoolClass, FeeStructure } from '../../core/models';
 
-interface InvoiceLineItem { name: string; amount: number; source: 'structure'|'transport'|'manual'; index?: number; }
+interface InvoiceLineItem { name: string; amount: number; source: 'structure'|'transport'|'manual'|'discount'; index?: number; }
 
 @Component({
   selector: 'app-create-invoice-dialog',
@@ -42,6 +42,41 @@ interface InvoiceLineItem { name: string; amount: number; source: 'structure'|'t
       @if (i < 4) { <div class="step-line" [class.done]="activeTab() > i"></div> }
     }
   </div>
+
+  <!-- ── Success state ─────────────────────────────────────────── -->
+  @if (submitted() && createdInvoice()) {
+    <div class="success-body">
+      <div class="success-icon"><mat-icon>check_circle</mat-icon></div>
+      <div class="success-title">Invoice Created</div>
+      <div class="success-no">{{ createdInvoice().invoice_no }}</div>
+
+      <div class="success-card">
+        <div class="sc-row"><span>Amount</span><strong>₹{{ createdInvoice().total | number:'1.0-2' }}</strong></div>
+      </div>
+
+      @if (createdInvoice().sms_to) {
+        @if (createdInvoice().sms_sent) {
+          <div class="sms-status sent">
+            <mat-icon>sms</mat-icon>
+            SMS sent to {{ createdInvoice().sms_to }}
+          </div>
+        } @else {
+          <div class="sms-status failed">
+            <mat-icon>warning_amber</mat-icon>
+            SMS delivery failed for {{ createdInvoice().sms_to }}
+          </div>
+        }
+      }
+    </div>
+
+    <div class="footer">
+      <div style="flex:1"></div>
+      <button class="btn-create" type="button" (click)="closeDialog()">
+        <mat-icon style="font-size:16px;width:16px;height:16px">done</mat-icon>
+        Done
+      </button>
+    </div>
+  } @else {
 
   <!-- Body (wraps all tabs as one reactive form) -->
   <form [formGroup]="form" class="body">
@@ -241,11 +276,11 @@ interface InvoiceLineItem { name: string; amount: number; source: 'structure'|'t
       </div>
     }
 
-    <!-- ── Tab 4: Extra Items ─────────────────────────────────── -->
+    <!-- ── Tab 4: Misc-Items/Discount ───────────────────────── -->
     @else if (activeTab() === 3) {
       <div class="section">
         <div class="sec-title"><mat-icon>edit_note</mat-icon> Additional Fee Items <span class="opt-tag">optional</span></div>
-        <p class="sec-hint">Add any items not covered by the fee structure — activity fees, late charges, materials, etc.</p>
+        <p class="sec-hint">Activity fees, late charges, materials, etc.</p>
 
         <div class="items-table">
           <div class="it-hdr">
@@ -271,7 +306,39 @@ interface InvoiceLineItem { name: string; amount: number; source: 'structure'|'t
         </div>
         <button type="button" class="add-row-btn" (click)="extraArr.push(newItem())">
           <mat-icon style="font-size:15px;width:15px;height:15px">add_circle_outline</mat-icon>
-          Add Row
+          Add Misc Item
+        </button>
+      </div>
+
+      <div class="section disc-section">
+        <div class="sec-title"><mat-icon style="color:#DC2626">remove_circle_outline</mat-icon> Discount Items <span class="opt-tag">optional</span></div>
+        <p class="sec-hint">Scholarships, waivers, special reductions — these reduce the invoice total.</p>
+
+        <div class="items-table">
+          <div class="it-hdr">
+            <span class="it-name">Discount Description</span>
+            <span class="it-amt">Amount (₹)</span>
+            <span class="it-del"></span>
+          </div>
+          <div formArrayName="discount_items">
+            @for (ctrl of discountArr.controls; track $index) {
+              <div [formGroupName]="$index" class="it-row">
+                <input class="inp it-name" formControlName="name" placeholder="e.g. Sibling Discount">
+                <div class="amt-wrap it-amt">
+                  <span class="amt-pfx disc-pfx">−₹</span>
+                  <input class="inp amt-inp" type="number" formControlName="amount" min="0" placeholder="0">
+                </div>
+                <button type="button" class="del-btn it-del" (click)="discountArr.removeAt($index)"
+                        [disabled]="discountArr.length === 1">
+                  <mat-icon style="font-size:15px;width:15px;height:15px">delete</mat-icon>
+                </button>
+              </div>
+            }
+          </div>
+        </div>
+        <button type="button" class="add-row-btn disc-add-btn" (click)="discountArr.push(newDiscountItem())">
+          <mat-icon style="font-size:15px;width:15px;height:15px">add_circle_outline</mat-icon>
+          Add Discount
         </button>
       </div>
     }
@@ -296,14 +363,19 @@ interface InvoiceLineItem { name: string; amount: number; source: 'structure'|'t
               <span class="st-del"></span>
             </div>
             @for (item of allLineItems; track $index) {
-              <div class="st-row">
+              <div class="st-row" [class.st-row-disc]="item.source === 'discount'">
                 <span class="st-src">
                   @if (item.source === 'transport') { <mat-icon style="font-size:13px;width:13px;height:13px;color:var(--blue)">directions_bus</mat-icon> }
                   @else if (item.source === 'structure') { <mat-icon style="font-size:13px;width:13px;height:13px;color:var(--text-3)">account_tree</mat-icon> }
+                  @else if (item.source === 'discount') { <mat-icon style="font-size:13px;width:13px;height:13px;color:#DC2626">remove_circle_outline</mat-icon> }
                   @else { <mat-icon style="font-size:13px;width:13px;height:13px;color:var(--text-3)">edit_note</mat-icon> }
                 </span>
-                <span class="st-name">{{ item.name }}</span>
-                <span class="st-amt">₹{{ item.amount | number:'1.0-2' }}</span>
+                <span class="st-name" [style.color]="item.source === 'discount' ? '#DC2626' : ''">{{ item.name }}</span>
+                @if (item.source === 'discount') {
+                  <span class="st-amt" style="color:#DC2626">−₹{{ (-item.amount) | number:'1.0-2' }}</span>
+                } @else {
+                  <span class="st-amt">₹{{ item.amount | number:'1.0-2' }}</span>
+                }
                 <button type="button" class="del-btn st-del" (click)="deleteItem(item)">
                   <mat-icon style="font-size:14px;width:14px;height:14px">delete</mat-icon>
                 </button>
@@ -415,6 +487,8 @@ interface InvoiceLineItem { name: string; amount: number; source: 'structure'|'t
       </button>
     }
   </div>
+
+  } <!-- end @else (form view) -->
 
 </div>
   `,
@@ -573,6 +647,10 @@ interface InvoiceLineItem { name: string; amount: number; source: 'structure'|'t
       font-size: 12.5px; color: var(--blue); cursor: pointer; font-weight: 500;
       &:hover { background: var(--blue-light); border-color: var(--blue-mid); }
     }
+    .disc-section { border: 1.5px dashed #FECACA; background: #FFF5F5; }
+    .disc-pfx { background: #FFF5F5; color: #DC2626; border-color: #FECACA; }
+    .disc-add-btn { color: #DC2626; &:hover { background: #FEF2F2; border-color: #FECACA; } }
+    .st-row-disc { background: #FFF5F5; border-radius: 6px; }
 
     /* Summary */
     .empty-summary {
@@ -664,6 +742,39 @@ interface InvoiceLineItem { name: string; amount: number; source: 'structure'|'t
       &:hover:not(:disabled) { background: #15803D; }
       &:disabled { opacity: .55; cursor: not-allowed; }
     }
+
+    /* Success state */
+    .success-body {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      gap: 14px; padding: 36px 28px; overflow-y: auto;
+    }
+    .success-icon {
+      width: 56px; height: 56px; border-radius: 50%;
+      background: #D1FAE5; display: flex; align-items: center; justify-content: center;
+      mat-icon { font-size: 32px; width: 32px; height: 32px; color: #059669; }
+    }
+    .success-title { font-size: 18px; font-weight: 700; color: var(--text); }
+    .success-no    { font-size: 13px; color: var(--blue); font-weight: 600; }
+    .success-card {
+      width: 100%; max-width: 340px;
+      background: var(--bg); border-radius: 10px; padding: 14px 18px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .sc-row {
+      display: flex; justify-content: space-between; font-size: 13px;
+      span { color: var(--text-3); }
+      strong { color: var(--text); font-weight: 600; }
+    }
+    .sms-status {
+      width: 100%; max-width: 340px;
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 500;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; flex-shrink: 0; }
+      &.sent      { background: #D1FAE5; color: #065F46; border: 1px solid #A7F3D0; }
+      &.failed    { background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; }
+      &.no-mobile { background: var(--bg); color: var(--text-3); border: 1px solid var(--border); }
+    }
+
   `],
 })
 export class CreateInvoiceDialogComponent implements OnInit, OnDestroy {
@@ -678,7 +789,7 @@ export class CreateInvoiceDialogComponent implements OnInit, OnDestroy {
     { id: 0, label: 'Student'   },
     { id: 1, label: 'Extras'    },
     { id: 2, label: 'Structure' },
-    { id: 3, label: 'Items'     },
+    { id: 3, label: 'Misc/Disc' },
     { id: 4, label: 'Summary'   },
   ];
 
@@ -704,10 +815,11 @@ export class CreateInvoiceDialogComponent implements OnInit, OnDestroy {
   selectedStructure = signal('');
 
   // ─── Misc ─────────────────────────────────────────────────────
-  billingType = signal('monthly');
-  submitting  = signal(false);
-  submitted   = signal(false);
-  error       = signal('');
+  billingType    = signal('monthly');
+  submitting     = signal(false);
+  submitted      = signal(false);
+  error          = signal('');
+  createdInvoice = signal<any>(null);
 
   // ─── Form ─────────────────────────────────────────────────────
   form = this.fb.group({
@@ -716,14 +828,20 @@ export class CreateInvoiceDialogComponent implements OnInit, OnDestroy {
     due_date:        [this.defaultDueDate(), Validators.required],
     discount:        [0],
     tax:             [0],
-    structure_items: this.fb.array([]),
-    extra_items:     this.fb.array([this.newItem()]),
+    structure_items:  this.fb.array([]),
+    extra_items:      this.fb.array([this.newItem()]),
+    discount_items:   this.fb.array([this.newDiscountItem()]),
   });
 
-  get structureArr(): FormArray { return this.form.get('structure_items') as FormArray; }
-  get extraArr():     FormArray { return this.form.get('extra_items')     as FormArray; }
+  get structureArr():  FormArray { return this.form.get('structure_items') as FormArray; }
+  get extraArr():      FormArray { return this.form.get('extra_items')     as FormArray; }
+  get discountArr():   FormArray { return this.form.get('discount_items')  as FormArray; }
 
   newItem(name = '', amount = 0) {
+    return this.fb.group({ name: [name], amount: [amount, Validators.min(0)] });
+  }
+
+  newDiscountItem(name = '', amount = 0) {
     return this.fb.group({ name: [name], amount: [amount, Validators.min(0)] });
   }
 
@@ -742,6 +860,11 @@ export class CreateInvoiceDialogComponent implements OnInit, OnDestroy {
       const v = c.value;
       if (v.name?.trim() && +v.amount > 0)
         out.push({ name: v.name.trim(), amount: +v.amount, source: 'manual', index: i });
+    });
+    this.discountArr.controls.forEach((c, i) => {
+      const v = c.value;
+      if (v.name?.trim() && +v.amount > 0)
+        out.push({ name: v.name.trim(), amount: -(+v.amount), source: 'discount', index: i });
     });
     return out;
   }
@@ -787,11 +910,15 @@ export class CreateInvoiceDialogComponent implements OnInit, OnDestroy {
   }
 
   nextLabel(): string {
-    const labels: Record<number, string> = { 0: 'Extras', 1: 'Structure', 2: 'Items', 3: 'Summary' };
+    const labels: Record<number, string> = { 0: 'Extras', 1: 'Structure', 2: 'Misc/Disc', 3: 'Summary' };
     return 'Next: ' + (labels[this.activeTab()] ?? '');
   }
 
-  canSubmit(): boolean { return this.allLineItems.length > 0 && this.grandTotal > 0; }
+  canSubmit(): boolean {
+    const items = this.allLineItems;
+    const hasPositive = items.some(i => i.amount > 0);
+    return hasPositive && this.grandTotal > 0;
+  }
 
   // ─── Init ─────────────────────────────────────────────────────
   ngOnInit() {
@@ -912,9 +1039,10 @@ export class CreateInvoiceDialogComponent implements OnInit, OnDestroy {
 
   // ─── Summary delete ───────────────────────────────────────────
   deleteItem(item: InvoiceLineItem) {
-    if (item.source === 'transport')  this.transportIncluded.set(false);
+    if      (item.source === 'transport') this.transportIncluded.set(false);
     else if (item.source === 'structure') this.structureArr.removeAt(item.index!);
-    else this.extraArr.removeAt(item.index!);
+    else if (item.source === 'discount')  this.discountArr.removeAt(item.index!);
+    else                                  this.extraArr.removeAt(item.index!);
   }
 
   // ─── Submit ───────────────────────────────────────────────────
@@ -944,13 +1072,15 @@ export class CreateInvoiceDialogComponent implements OnInit, OnDestroy {
       payload.discount_note = `${conc.concession_name} (${conc.discount_type === 'percentage' ? conc.discount_value + '%' : '₹' + conc.discount_value})`;
     }
     this.api.post<any>('/fees/invoices', payload).subscribe({
-      next: (r: any) => { this.submitting.set(false); this.submitted.set(true); this.dialogRef.close(r.data); },
+      next: (r: any) => { this.submitting.set(false); this.submitted.set(true); this.createdInvoice.set(r.data); },
       error: (err: any) => {
         this.submitting.set(false);
         this.error.set(err.error?.error?.message ?? 'Failed to create invoice. Please try again.');
       },
     });
   }
+
+  closeDialog() { this.dialogRef.close(this.createdInvoice()); }
 
   // ─── Billing period helpers ───────────────────────────────────
   onBillingTypeChange(type: string) {

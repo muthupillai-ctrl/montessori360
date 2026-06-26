@@ -20,6 +20,14 @@ interface School {
   created_at: string;
 }
 
+interface StaffAdmin {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+}
+
 interface Plan {
   id: string;
   name: string;
@@ -92,6 +100,10 @@ interface Plan {
                     </span>
                   </td>
                   <td class="actions">
+                    <button class="icon-btn" title="Reset staff password"
+                            (click)="openResetPassword(s)">
+                      <mat-icon>key</mat-icon>
+                    </button>
                     <button class="icon-btn" title="{{ s.is_active ? 'Suspend' : 'Activate' }}"
                             (click)="toggleActive(s)"
                             [class.danger]="s.is_active">
@@ -191,6 +203,67 @@ interface Plan {
       </div>
     }
 
+    <!-- Reset Password drawer -->
+    @if (showReset()) {
+      <div class="overlay" (click)="closeReset()"></div>
+      <div class="drawer">
+        <div class="drawer-header">
+          <div>
+            <h2>Reset Staff Password</h2>
+            <p class="drawer-sub">{{ resetSchool()?.name }}</p>
+          </div>
+          <button class="icon-btn" (click)="closeReset()"><mat-icon>close</mat-icon></button>
+        </div>
+
+        @if (resetError()) {
+          <div class="err-banner sm"><mat-icon>error_outline</mat-icon> {{ resetError() }}</div>
+        }
+
+        <div class="drawer-form">
+          @if (adminsLoading()) {
+            <div class="spinner-wrap"><mat-spinner diameter="28" /></div>
+          } @else if (schoolAdmins().length === 0) {
+            <div class="empty">
+              <mat-icon>person_off</mat-icon>
+              <p>No owner or principal accounts found.</p>
+            </div>
+          } @else {
+            <div class="field">
+              <label>Select Staff Account <span class="req">*</span></label>
+              <select [value]="selectedAdmin()" (change)="selectedAdmin.set($any($event.target).value)">
+                <option value="">Choose an account…</option>
+                @for (a of schoolAdmins(); track a.id) {
+                  <option [value]="a.id">{{ a.first_name }} {{ a.last_name }} ({{ a.role }}) — {{ a.email }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="field">
+              <label>New Password <span class="req">*</span></label>
+              <div class="pw-wrap">
+                <input [type]="showResetPw() ? 'text' : 'password'" [value]="newPassword()"
+                       (input)="newPassword.set($any($event.target).value)"
+                       placeholder="Min 8 characters" />
+                <button type="button" class="pw-toggle" (click)="showResetPw.set(!showResetPw())">
+                  <mat-icon>{{ showResetPw() ? 'visibility_off' : 'visibility' }}</mat-icon>
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+
+        <div class="drawer-footer">
+          <button class="btn-ghost" (click)="closeReset()">Cancel</button>
+          <button class="btn-primary"
+                  [disabled]="!selectedAdmin() || newPassword().length < 8 || resetSaving()"
+                  (click)="submitReset()">
+            @if (resetSaving()) { <mat-spinner diameter="14" /> }
+            Reset Password
+          </button>
+        </div>
+      </div>
+    }
+
     <!-- Success toast -->
     @if (successMsg()) {
       <div class="toast">
@@ -275,6 +348,7 @@ interface Plan {
       padding: 20px 24px; border-bottom: 1px solid #E2E8F0; position: sticky; top: 0; background: #fff; z-index: 1;
       h2 { margin: 0; font-size: 17px; font-weight: 700; color: #0F172A; }
     }
+    .drawer-sub { margin: 2px 0 0; font-size: 12px; color: #64748B; }
     .drawer-form { padding: 24px; display: flex; flex-direction: column; gap: 14px; flex: 1; }
     .drawer-footer {
       display: flex; justify-content: flex-end; gap: 10px;
@@ -324,6 +398,17 @@ export class PlatformSchoolsComponent implements OnInit {
   createError = signal('');
   successMsg  = signal('');
   showPw     = signal(false);
+
+  // Reset password drawer
+  showReset     = signal(false);
+  resetSchool   = signal<School | null>(null);
+  schoolAdmins  = signal<StaffAdmin[]>([]);
+  adminsLoading = signal(false);
+  selectedAdmin = signal('');
+  newPassword   = signal('');
+  showResetPw   = signal(false);
+  resetSaving   = signal(false);
+  resetError    = signal('');
 
   form = this.fb.group({
     name:           ['', Validators.required],
@@ -405,6 +490,51 @@ export class PlatformSchoolsComponent implements OnInit {
         this.showToast(`${school.name} ${res.data.is_active ? 'activated' : 'suspended'}`);
       },
       error: e => this.error.set(e?.error?.error?.message ?? 'Failed to update school'),
+    });
+  }
+
+  openResetPassword(school: School) {
+    this.resetSchool.set(school);
+    this.selectedAdmin.set('');
+    this.newPassword.set('');
+    this.showResetPw.set(false);
+    this.resetError.set('');
+    this.showReset.set(true);
+    this.adminsLoading.set(true);
+    this.http.get<{ data: StaffAdmin[] }>(
+      `${environment.apiUrl}/platform/tenants/${school.id}/admins`,
+      { headers: this.headers() }
+    ).subscribe({
+      next: res => { this.schoolAdmins.set(res.data); this.adminsLoading.set(false); },
+      error: () => { this.resetError.set('Failed to load staff accounts'); this.adminsLoading.set(false); },
+    });
+  }
+
+  closeReset() {
+    this.showReset.set(false);
+    this.resetSchool.set(null);
+    this.schoolAdmins.set([]);
+  }
+
+  submitReset() {
+    if (!this.selectedAdmin() || this.newPassword().length < 8) return;
+    this.resetSaving.set(true);
+    this.resetError.set('');
+    const school = this.resetSchool()!;
+    this.http.post(
+      `${environment.apiUrl}/platform/tenants/${school.id}/staff/${this.selectedAdmin()}/reset-password`,
+      { password: this.newPassword() },
+      { headers: this.headers() }
+    ).subscribe({
+      next: () => {
+        this.resetSaving.set(false);
+        this.closeReset();
+        this.showToast('Password reset successfully');
+      },
+      error: e => {
+        this.resetError.set(e?.error?.error?.message ?? 'Failed to reset password');
+        this.resetSaving.set(false);
+      },
     });
   }
 

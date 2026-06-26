@@ -3,6 +3,7 @@ import { tenantQuery, tenantTransaction } from '../../config/database.js';
 import { cacheSet, cacheGet, cacheDel, cacheDelPattern } from '../../config/redis.js';
 import { AppError } from '../../middleware/errorHandler.js';
 import { concessionsService } from './concessions.service.js';
+import { smsService } from '../sms/sms.service.js';
 import type {
   FeeStructureRow, FeeInvoiceRow,
   CreateFeeStructureDto, CreateInvoiceDto, BulkCreateInvoicesDto,
@@ -243,9 +244,10 @@ class FeesService {
     await this.ensureDiscountCols(schema);
     return tenantTransaction(schema, async (client) => {
 
-      // Verify student
+      // Verify student (name also used for SMS)
       const { rows: [student] } = await client.query(
-        `SELECT id FROM ${schema}.students WHERE id = $1 AND is_active = true`,
+        `SELECT id, trim(first_name || ' ' || COALESCE(last_name, '')) AS student_name
+         FROM ${schema}.students WHERE id = $1 AND is_active = true`,
         [dto.student_id]
       );
       if (!student) throw AppError.notFound('Student');
@@ -354,8 +356,43 @@ class FeesService {
         ]
       );
 
-      await this.auditLog(schema, client, createdBy, 'CREATE', 'fee_invoices', rows[0].id);
-      return rows[0] as FeeInvoiceRow;
+      const invoice = rows[0] as FeeInvoiceRow;
+      await this.auditLog(schema, client, createdBy, 'CREATE', 'fee_invoices', invoice.id);
+
+      // SMS notification — runs after commit; failure never blocks invoice creation
+      const { rows: parents } = await client.query(
+        `SELECT mobile FROM ${schema}.student_parents
+         WHERE student_id = $1 AND mobile IS NOT NULL
+         ORDER BY is_primary DESC NULLS LAST LIMIT 1`,
+        [dto.student_id]
+      );
+      const { rows: [tenant] } = await client.query(
+        `SELECT name FROM public.tenants WHERE schema_name = $1`,
+        [schema]
+      );
+
+      const parentMobile = parents[0]?.mobile ?? null;
+      if (smsService.isEnabled() && parentMobile) {
+        const amount  = new Intl.NumberFormat('en-IN').format(+invoice.total);
+        const dueDate = new Date(invoice.due_date as any)
+          .toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+        const smsResult = await smsService.sendInvoiceNotification({
+          mobile:        parentMobile,
+          studentName:   student.student_name ?? 'Student',
+          invoiceNo:     invoice.invoice_no,
+          billingPeriod: invoice.billing_period,
+          amount,
+          dueDate,
+          schoolName:    tenant?.name ?? 'School',
+        });
+        (invoice as any).sms_sent = smsResult.sent;
+        (invoice as any).sms_to   = parentMobile;
+      } else {
+        (invoice as any).sms_sent = null;
+        (invoice as any).sms_to   = null;
+      }
+
+      return invoice;
     });
   }
 

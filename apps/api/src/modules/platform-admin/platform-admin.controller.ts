@@ -59,3 +59,21 @@ export async function getAiUsage(req: Request, res: Response, next: NextFunction
     res.json({ data });
   } catch (err) { next(err); }
 }
+
+export async function listSchoolAdmins(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await platformAdminService.listSchoolAdmins(req.params['id'] as string);
+    res.json({ data });
+  } catch (err) { next(err); }
+}
+
+export async function resetStaffPassword(req: Request, res: Response, next: NextFunction) {
+  try {
+    await platformAdminService.resetStaffPassword(
+      req.params['id'] as string,
+      req.params['staffId'] as string,
+      req.body.password
+    );
+    res.json({ message: 'Password reset successfully' });
+  } catch (err) { next(err); }
+}

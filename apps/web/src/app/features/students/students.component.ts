@@ -46,6 +46,32 @@ import type { Student, SchoolClass, PaginatedResponse, ApiResponse } from '../..
         <div class="subtitle">{{ total() }} students enrolled across {{ classes().length }} classes</div>
       </div>
       <div class="actions">
+        <button class="btn-outline-custom" [matMenuTriggerFor]="exportMenu" [disabled]="exporting()">
+          <mat-icon style="font-size:16px;width:16px;height:16px">{{ exporting() ? 'hourglass_empty' : 'download' }}</mat-icon>
+          {{ exporting() ? 'Exporting…' : 'Export' }}
+          <mat-icon style="font-size:14px;width:14px;height:14px;margin-left:2px">arrow_drop_down</mat-icon>
+        </button>
+        <mat-menu #exportMenu="matMenu">
+          <button mat-menu-item (click)="exportStudents('xlsx')">
+            <mat-icon style="color:#217346">table_chart</mat-icon>
+            <span>Excel — All School</span>
+          </button>
+          <button mat-menu-item (click)="exportStudents('pdf')">
+            <mat-icon style="color:#c00">picture_as_pdf</mat-icon>
+            <span>PDF — All School</span>
+          </button>
+          @if (selectedClass()) {
+            <mat-divider />
+            <button mat-menu-item (click)="exportStudents('xlsx', selectedClass())">
+              <mat-icon style="color:#217346">table_chart</mat-icon>
+              <span>Excel — {{ selectedClassName() }}</span>
+            </button>
+            <button mat-menu-item (click)="exportStudents('pdf', selectedClass())">
+              <mat-icon style="color:#c00">picture_as_pdf</mat-icon>
+              <span>PDF — {{ selectedClassName() }}</span>
+            </button>
+          }
+        </mat-menu>
 
         @if (canManage()) {
           <button class="btn-primary-custom" (click)="openEnrolDialog()">
@@ -64,20 +90,32 @@ import type { Student, SchoolClass, PaginatedResponse, ApiResponse } from '../..
         <!-- Stats bar -->
         <div class="stats-bar">
           <div class="stat-pill">
-            <div class="sp-icon blue"><mat-icon style="font-size:14px;width:14px;height:14px">people</mat-icon></div>
-            <div><div class="sp-val">{{ total() }}</div><div class="sp-lbl">Total</div></div>
+            <div class="sp-title">Total Students</div>
+            <div class="sp-body">
+              <div class="sp-icon blue"><mat-icon style="font-size:14px;width:14px;height:14px">people</mat-icon></div>
+              <div class="sp-val">{{ total() }}</div>
+            </div>
           </div>
           <div class="stat-pill">
-            <div class="sp-icon green"><mat-icon style="font-size:14px;width:14px;height:14px">check_circle</mat-icon></div>
-            <div><div class="sp-val">{{ activeCount() }}</div><div class="sp-lbl">Active</div></div>
+            <div class="sp-title">Active</div>
+            <div class="sp-body">
+              <div class="sp-icon green"><mat-icon style="font-size:14px;width:14px;height:14px">check_circle</mat-icon></div>
+              <div class="sp-val">{{ activeCount() }}</div>
+            </div>
           </div>
           <div class="stat-pill">
-            <div class="sp-icon amber"><mat-icon style="font-size:14px;width:14px;height:14px">schedule</mat-icon></div>
-            <div><div class="sp-val">{{ unassignedCount() }}</div><div class="sp-lbl">No class</div></div>
+            <div class="sp-title">Without Class</div>
+            <div class="sp-body">
+              <div class="sp-icon amber"><mat-icon style="font-size:14px;width:14px;height:14px">schedule</mat-icon></div>
+              <div class="sp-val">{{ unassignedCount() }}</div>
+            </div>
           </div>
           <div class="stat-pill">
-            <div class="sp-icon purple"><mat-icon style="font-size:14px;width:14px;height:14px">class</mat-icon></div>
-            <div><div class="sp-val">{{ classes().length }}</div><div class="sp-lbl">Classes</div></div>
+            <div class="sp-title">Active Classes</div>
+            <div class="sp-body">
+              <div class="sp-icon purple"><mat-icon style="font-size:14px;width:14px;height:14px">class</mat-icon></div>
+              <div class="sp-val">{{ classes().length }}</div>
+            </div>
           </div>
         </div>
 
@@ -105,6 +143,7 @@ import type { Student, SchoolClass, PaginatedResponse, ApiResponse } from '../..
             <select class="filter-select" [value]="activeFilter()" (change)="onActiveFilter($any($event.target).value)">
               <option value="true">Active</option>
               <option value="false">Inactive</option>
+              <option value="all">All Students</option>
             </select>
           </div>
         </div>
@@ -144,6 +183,7 @@ import type { Student, SchoolClass, PaginatedResponse, ApiResponse } from '../..
                   <th>Class</th>
                   <th>Date of Birth</th>
                   <th>Gender</th>
+                  <th>Emergency Contact</th>
                   <th>Status</th>
                   <th></th>
                 </tr>
@@ -162,7 +202,9 @@ import type { Student, SchoolClass, PaginatedResponse, ApiResponse } from '../..
                         </div>
                       </div>
                     </td>
-                    <td><span class="mono-chip">{{ s.admission_no }}</span></td>
+                    <td>
+                      <button class="adm-link" (click)="viewStudent(s)">{{ s.admission_no }}</button>
+                    </td>
                     <td>
                       @if (s.rfid_uid) {
                         <span class="mono-chip rfid-chip">📡 {{ s.rfid_uid }}</span>
@@ -179,6 +221,19 @@ import type { Student, SchoolClass, PaginatedResponse, ApiResponse } from '../..
                     </td>
                     <td class="text-sm">{{ s.dob | date:'d MMM yyyy' }}</td>
                     <td class="text-sm">{{ s.gender | titlecase }}</td>
+                    <td>
+                      @if (s.emergency_mobile) {
+                        <div class="emergency-cell">
+                          <div class="ec-name">{{ s.emergency_first_name }} {{ s.emergency_last_name }}</div>
+                          <div class="ec-phone">{{ s.emergency_mobile }}</div>
+                          @if (s.emergency_relation) {
+                            <div class="ec-rel">{{ s.emergency_relation | titlecase }}</div>
+                          }
+                        </div>
+                      } @else {
+                        <span class="text-muted text-xs">—</span>
+                      }
+                    </td>
                     <td>
                       <span [class]="'badge badge-' + (s.is_active ? 'active' : 'inactive')">
                         {{ s.is_active ? 'Active' : 'Inactive' }}
@@ -262,10 +317,12 @@ import type { Student, SchoolClass, PaginatedResponse, ApiResponse } from '../..
       flex-wrap: wrap;
     }
     .stat-pill {
-      display: flex; align-items: center; gap: 10px;
+      display: flex; flex-direction: column; gap: 8px;
       background: var(--surface); border: 1px solid var(--border);
-      border-radius: 9px; padding: 10px 16px; min-width: 120px;
+      border-radius: 9px; padding: 12px 16px; min-width: 130px;
     }
+    .sp-title { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .4px; }
+    .sp-body  { display: flex; align-items: center; gap: 10px; }
     .sp-icon {
       width: 30px; height: 30px; border-radius: 8px;
       display: flex; align-items: center; justify-content: center; flex-shrink: 0;
@@ -274,8 +331,7 @@ import type { Student, SchoolClass, PaginatedResponse, ApiResponse } from '../..
       &.amber  { background: var(--amber-light);  color: var(--amber); }
       &.purple { background: var(--purple-light); color: var(--purple); }
     }
-    .sp-val { font-size: 18px; font-weight: 600; color: var(--text); line-height: 1.1; }
-    .sp-lbl { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+    .sp-val { font-size: 22px; font-weight: 700; color: var(--text); line-height: 1; }
 
     /* Filter bar */
     .filter-bar {
@@ -348,11 +404,25 @@ import type { Student, SchoolClass, PaginatedResponse, ApiResponse } from '../..
       font-size: 11.5px; background: var(--bg); color: var(--blue);
       padding: 2px 8px; border-radius: 5px; font-weight: 500;
     }
+    .adm-link {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 11.5px; font-weight: 500;
+      background: var(--bg); color: var(--blue);
+      padding: 2px 8px; border-radius: 5px;
+      border: none; cursor: pointer;
+      text-decoration: underline; text-underline-offset: 2px;
+      &:hover { background: var(--blue-light); }
+    }
     .rfid-chip { color: var(--green, #059669); background: var(--green-light, #ECFDF5); }
     .class-tag {
       background: var(--purple-light); color: var(--purple);
       font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 5px;
     }
+
+    .emergency-cell { display: flex; flex-direction: column; gap: 1px; }
+    .ec-name  { font-size: 12px; font-weight: 500; color: var(--text); }
+    .ec-phone { font-size: 11.5px; color: var(--blue); font-family: 'SF Mono', 'Fira Code', monospace; }
+    .ec-rel   { font-size: 10px; color: var(--text-4); text-transform: uppercase; letter-spacing: .3px; }
 
     .row-menu-btn {
       background: none; border: none; cursor: pointer;
@@ -443,6 +513,7 @@ export class StudentsComponent implements OnInit {
   showAddClass  = signal(false);
   viewProfileId = signal<string | null>(null);
   addingClass   = signal(false);
+  exporting     = signal(false);
 
   private search$ = new Subject<string>();
 
@@ -466,7 +537,8 @@ export class StudentsComponent implements OnInit {
 
   loadStudents() {
     this.loading.set(true);
-    const params: Record<string, unknown> = { page: this.page(), limit: this.pageSize, is_active: this.activeFilter() };
+    const params: Record<string, unknown> = { page: this.page(), limit: this.pageSize };
+    if (this.activeFilter() !== 'all') params['is_active'] = this.activeFilter();
     if (this.searchTerm()) params['search'] = this.searchTerm();
     if (this.selectedClass()) params['class_id'] = this.selectedClass();
     this.api.get<PaginatedResponse<Student>>('/students', params).subscribe({
@@ -533,7 +605,7 @@ export class StudentsComponent implements OnInit {
 
   editStudent(s: Student) {
     const ref = this.dialog.open(EditStudentDialogComponent, {
-      data: s, width: '95vw', maxWidth: '560px', maxHeight: '90vh', disableClose: true,
+      data: s, width: '95vw', maxWidth: '560px', height: '86vh', maxHeight: '90vh', disableClose: true,
     });
     ref.afterClosed().subscribe((updated: Student) => {
       if (updated) {
@@ -612,6 +684,31 @@ export class StudentsComponent implements OnInit {
     this.api.delete('/students/' + s.id).subscribe({
       next: () => { this.snack.open('Student deactivated', 'OK', { duration: 3000 }); this.loadStudents(); },
       error: (err: any) => this.snack.open(err.error?.error?.message ?? 'Error', 'OK', { duration: 3000 }),
+    });
+  }
+
+  selectedClassName(): string {
+    return this.classes().find(c => c.id === this.selectedClass())?.name ?? '';
+  }
+
+  exportStudents(format: 'xlsx' | 'pdf', classId?: string) {
+    const params: Record<string, string> = { format };
+    if (classId) params['class_id'] = classId;
+    this.exporting.set(true);
+    this.api.download('/students/export', params).subscribe({
+      next: blob => {
+        const ext = format === 'xlsx' ? 'xlsx' : 'pdf';
+        const a   = document.createElement('a');
+        a.href    = URL.createObjectURL(blob);
+        a.download = `students-${new Date().toISOString().slice(0, 10)}.${ext}`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        this.exporting.set(false);
+      },
+      error: () => {
+        this.snack.open('Export failed. Please try again.', 'OK', { duration: 3000 });
+        this.exporting.set(false);
+      },
     });
   }
 }

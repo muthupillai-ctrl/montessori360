@@ -34,7 +34,6 @@ const mockStudent = {
   blood_group: 'O+',
   nationality: 'Indian',
   aadhar_no: null,
-  emergency_contacts: [{ name: 'Raj Sharma', relation: 'father', phone: '+919876543210', is_primary: true }],
   medical_notes: {},
   dietary_notes: null,
   allergies: [],
@@ -113,7 +112,6 @@ describe('StudentsService', () => {
         last_name: 'Sharma',
         dob: '2020-04-15',
         class_id: mockStudent.class_id!,
-        emergency_contacts: [{ name: 'Raj Sharma', relation: 'father', phone: '+919876543210', is_primary: true }],
       };
 
       const result = await studentsService.create(SCHEMA, dto, USER_ID);
@@ -134,7 +132,6 @@ describe('StudentsService', () => {
         studentsService.create(SCHEMA, {
           first_name: 'Test', last_name: 'Student', dob: '2020-01-01',
           class_id: mockStudent.class_id!,
-          emergency_contacts: [{ name: 'Parent', relation: 'mother', phone: '+910000000000', is_primary: true }],
         }, USER_ID)
       ).rejects.toMatchObject({ statusCode: 409 });
     });

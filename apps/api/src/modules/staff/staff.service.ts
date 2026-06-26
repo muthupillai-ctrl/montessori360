@@ -23,7 +23,17 @@ class StaffService {
     const params: unknown[] = [is_active];
     let i = 2;
 
-    if (role)   { conditions.push(`s.role = $${i++}`);  params.push(role); }
+    if (role) {
+      const roles = role.split(',').map((r: string) => r.trim()).filter(Boolean);
+      if (roles.length === 1) {
+        conditions.push(`s.role = $${i++}`);
+        params.push(roles[0]);
+      } else {
+        const placeholders = roles.map(() => `$${i++}`).join(', ');
+        conditions.push(`s.role IN (${placeholders})`);
+        params.push(...roles);
+      }
+    }
     if (search) {
       conditions.push(`(s.first_name ILIKE $${i} OR s.last_name ILIKE $${i} OR s.email ILIKE $${i} OR sd.employee_no ILIKE $${i})`);
       params.push(`%${search}%`); i++;
@@ -200,6 +210,16 @@ class StaffService {
       await cacheDelPattern(`${schema}:staff:list:*`);
       return this.getById(schema, id);
     });
+  }
+
+  async setPassword(schema: string, id: string, newPassword: string): Promise<void> {
+    const staff = await this.getById(schema, id);
+    if (!staff) throw AppError.notFound('Staff member');
+    const hash = await bcrypt.hash(newPassword, 12);
+    await tenantQuery(schema,
+      `UPDATE ${schema}.staff SET password_hash = $1, updated_at = now() WHERE id = $2`,
+      [hash, id]
+    );
   }
 
   async deactivate(schema: string, id: string): Promise<void> {

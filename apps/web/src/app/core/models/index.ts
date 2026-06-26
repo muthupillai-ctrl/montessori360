@@ -12,11 +12,12 @@ export interface LoginResponse {
 }
 
 export interface AuthUser {
-  id:       string;
-  email:    string;
-  role:     string;
-  name:     string;
-  tenantId: string;
+  id:         string;
+  email:      string;
+  role:       string;
+  name:       string;
+  tenantId:   string;
+  tenantName: string;
 }
 
 // ── Pagination ────────────────────────────────────────────────────────────────
@@ -49,7 +50,7 @@ export interface Student {
   class_name?:         string;
   blood_group:         string | null;
   nationality:         string;
-  emergency_contacts:  EmergencyContact[];
+  mother_tongue:       string | null;
   medical_notes:       Record<string, unknown>;
   dietary_notes:       string | null;
   allergies:           string[];
@@ -57,13 +58,10 @@ export interface Student {
   is_active:           boolean;
   created_at:          string;
   rfid_uid:            string | null;
-}
-
-export interface EmergencyContact {
-  name:       string;
-  relation:   string;
-  phone:      string;
-  is_primary: boolean;
+  emergency_mobile?:       string | null;
+  emergency_first_name?:   string | null;
+  emergency_last_name?:    string | null;
+  emergency_relation?:     string | null;
 }
 
 export interface SchoolClass {

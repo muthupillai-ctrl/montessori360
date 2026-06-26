@@ -21,10 +21,10 @@ import { ApiService } from '../../../core/services/api.service';
 
         <!-- Brand -->
         <div class="sb-brand">
-          <div class="sb-logo">M</div>
+          <div class="sb-logo">{{ schoolInitial() }}</div>
           <div>
-            <div class="sb-name">Montessori360</div>
-            <div class="sb-sub">School Portal</div>
+            <div class="sb-name">{{ auth.user()?.tenantName ?? 'School Portal' }}</div>
+            <div class="sb-sub">Montessori360</div>
           </div>
         </div>
 
@@ -545,6 +545,10 @@ export class ShellComponent implements OnInit {
     const name = this.auth.user()?.name ?? '';
     return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'AU';
   });
+
+  schoolInitial = computed(() =>
+    (this.auth.user()?.tenantName ?? 'S')[0].toUpperCase()
+  );
 
   constructor() {
     this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe(() => {

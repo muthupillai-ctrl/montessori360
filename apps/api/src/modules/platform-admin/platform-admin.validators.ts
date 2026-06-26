@@ -47,3 +47,4 @@ function validate(schema: z.ZodSchema) {
 export const validateLogin        = validate(loginSchema);
 export const validateCreateTenant = validate(createTenantSchema);
 export const validateUpdateTenant = validate(updateTenantSchema);
+export const validateResetStaffPassword = validate(z.object({ password: z.string().min(8, 'Password must be at least 8 characters') }));

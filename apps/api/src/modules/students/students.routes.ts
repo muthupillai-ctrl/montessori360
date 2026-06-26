@@ -10,9 +10,9 @@ import {
   assignClass, getSiblings, linkSiblings, unlinkSiblings,
   promoteStudents, listClasses, createClass, updateClass, deleteClass,
   listParents, createParent, updateParent, deleteParent, inviteParentToPortal,
-  listAllParents, listPortalAccounts, inviteParentByRecord,
+  listAllParents, listParentsGroupedByStudent, listPortalAccounts, inviteParentByRecord,
   resendParentInvite, togglePortalAccount, deletePortalAccount,
-  assignRfid,
+  assignRfid, exportStudents,
 } from './students.controller.js';
 
 export const studentsRouter = Router();
@@ -30,11 +30,15 @@ studentsRouter.delete('/classes/:classId',   authorize(...ADMIN_ROLES), deleteCl
 
 // ── Parent directory (global) — must be before /:id ──────────────────────────
 studentsRouter.get(  '/all-parents',                            authorize(...VIEW_ROLES),   listAllParents);
+studentsRouter.get(  '/parents-grouped',                        authorize(...VIEW_ROLES),   listParentsGroupedByStudent);
 studentsRouter.get(  '/portal-accounts',                        authorize(...MANAGE_ROLES), listPortalAccounts);
 studentsRouter.post( '/all-parents/:parentRecordId/invite',     authorize(...MANAGE_ROLES), inviteParentByRecord);
 studentsRouter.post( '/portal-accounts/:accountId/resend',      authorize(...MANAGE_ROLES), resendParentInvite);
 studentsRouter.patch( '/portal-accounts/:accountId/toggle',      authorize(...MANAGE_ROLES), togglePortalAccount);
 studentsRouter.delete('/portal-accounts/:accountId',             authorize(...MANAGE_ROLES), deletePortalAccount);
+
+// ── Export (must be before /:id) ──────────────────────────────────────────────
+studentsRouter.get('/export', authorize(...VIEW_ROLES), exportStudents);
 
 // ── Students CRUD ─────────────────────────────────────────────────────────────
 studentsRouter.get('/',    authorize(...VIEW_ROLES),   validateStudentFilters, listStudents);

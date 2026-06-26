@@ -52,13 +52,6 @@ export interface ApiError {
         details?: unknown;
     };
 }
-export interface EmergencyContact {
-    name: string;
-    relation: string;
-    phone: string;
-    email?: string;
-    is_primary: boolean;
-}
 export interface FeeHead {
     name: string;
     amount: number;

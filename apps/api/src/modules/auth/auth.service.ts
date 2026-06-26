@@ -27,7 +27,7 @@ interface TenantRow {
 interface TokenPair {
   accessToken: string;
   refreshToken: string;
-  user: { id: string; email: string; role: string; name: string; tenantId: string };
+  user: { id: string; email: string; role: string; name: string; tenantId: string; tenantName: string };
 }
 
 class AuthService {
@@ -104,6 +104,7 @@ class AuthService {
         role: user.role,
         name: `${user.first_name} ${user.last_name}`,
         tenantId: tenant.id,
+        tenantName: tenant.name,
       },
     };
   }

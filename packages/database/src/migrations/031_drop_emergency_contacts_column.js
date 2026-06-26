@@ -1,0 +1,29 @@
+exports.up = async ({ sql }) => {
+  sql(`
+    DO $outer$
+    DECLARE t RECORD;
+    BEGIN
+      FOR t IN SELECT schema_name FROM public.tenants LOOP
+        EXECUTE format($$
+          ALTER TABLE %I.students
+            DROP COLUMN IF EXISTS emergency_contacts;
+        $$, t.schema_name);
+      END LOOP;
+    END $outer$;
+  `);
+};
+
+exports.down = async ({ sql }) => {
+  sql(`
+    DO $outer$
+    DECLARE t RECORD;
+    BEGIN
+      FOR t IN SELECT schema_name FROM public.tenants LOOP
+        EXECUTE format($$
+          ALTER TABLE %I.students
+            ADD COLUMN IF NOT EXISTS emergency_contacts JSONB NOT NULL DEFAULT '[]';
+        $$, t.schema_name);
+      END LOOP;
+    END $outer$;
+  `);
+};

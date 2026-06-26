@@ -3,12 +3,27 @@ import { z } from 'zod';
 
 // ── Sub-schemas ───────────────────────────────────────────────────────────────
 
-const emergencyContactSchema = z.object({
-  name:       z.string().min(1, 'Contact name is required'),
-  relation:   z.string().min(1, 'Relation is required'),
-  phone:      z.string().regex(/^\+?[0-9]{7,15}$/, 'Invalid phone number'),
-  email:      z.string().email('Invalid email').optional().or(z.literal('')),
-  is_primary: z.boolean().default(false),
+const parentSchema = z.object({
+  relation:             z.enum(['father', 'mother', 'guardian', 'step_father', 'step_mother', 'other']),
+  first_name:           z.string().min(1).max(100),
+  last_name:            z.string().max(100).optional(),
+  mobile:               z.string().min(1).max(20).optional(),
+  email:                z.string().email().optional().or(z.literal('')),
+  mobile_alt:           z.string().optional(),
+  is_primary:           z.boolean().optional(),
+  is_emergency_contact: z.boolean().optional(),
+  can_pickup:           z.boolean().optional(),
+  address_line1:        z.string().max(200).optional(),
+  address_line2:        z.string().max(200).optional(),
+  city:                 z.string().max(100).optional(),
+  state:                z.string().max(100).optional(),
+  country:              z.string().max(100).optional(),
+  pincode:              z.string().max(10).optional(),
+  profession:           z.string().max(100).optional(),
+  employer:             z.string().max(200).optional(),
+  annual_income:        z.number().int().positive().optional(),
+  education:            z.string().max(50).optional(),
+  notes:                z.string().max(1000).optional(),
 });
 
 const medicalNotesSchema = z.object({
@@ -23,16 +38,17 @@ const medicalNotesSchema = z.object({
 
 export const createStudentSchema = z.object({
   first_name: z.string().min(1).max(100),
-  last_name:  z.string().min(1).max(100),
+  last_name:  z.string().max(100).optional(),
   dob:        z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
   gender:     z.enum(['male', 'female', 'other']).optional(),
   class_id:   z.string().uuid('Invalid class ID').optional(),
 
   blood_group:   z.string().max(5).optional(),
   nationality:   z.string().max(50).default('Indian'),
+  mother_tongue: z.string().max(100).optional(),
   aadhar_no:     z.string().regex(/^\d{12}$/, 'Aadhaar must be 12 digits').optional(),
 
-  emergency_contacts: z.array(emergencyContactSchema).min(1, 'At least one emergency contact is required'),
+  parents: z.array(parentSchema).min(1, 'At least one parent is required').optional(),
   medical_notes:      medicalNotesSchema,
   dietary_notes:      z.string().max(500).optional(),
   allergies:          z.array(z.string()).optional(),

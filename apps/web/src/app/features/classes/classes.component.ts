@@ -459,10 +459,9 @@ export class ClassesComponent implements OnInit {
   }
 
   loadTeachers() {
-    this.api.get<any>('/staff', { role: 'teacher', limit: '100' }).subscribe({
+    this.api.get<any>('/staff', { role: 'teacher,assistant_teacher,principal', limit: '100' }).subscribe({
       next: (res: any) => {
-        const teachers = (res.data?.items ?? res.data ?? [])
-          .filter((s: any) => ['teacher','assistant_teacher','principal'].includes(s.role));
+        const teachers = (res.data?.items ?? res.data ?? []);
         this.teachers.set(teachers);
       },
       error: () => {},

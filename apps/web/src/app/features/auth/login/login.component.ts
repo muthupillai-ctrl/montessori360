@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -54,25 +54,34 @@ import { AuthService } from '../../../core/services/auth.service';
 
           <div class="card-header">
             <h2>Welcome back</h2>
-            <p>Sign in to your admin portal</p>
+            @if (schoolCodeFromHost()) {
+              <div class="school-badge">
+                <mat-icon style="font-size:13px;width:13px;height:13px">apartment</mat-icon>
+                {{ schoolCodeFromHost().toUpperCase() }}
+              </div>
+            } @else {
+              <p>Sign in to your admin portal</p>
+            }
           </div>
 
           <form [formGroup]="form" (ngSubmit)="submit()" class="login-form">
 
-            <div class="field-group">
-              <label class="field-label">School Code</label>
-              <div class="input-wrap" [class.focused]="focused === 'school'" [class.error]="form.get('tenantCode')?.invalid && form.get('tenantCode')?.touched">
-                <mat-icon class="input-icon">apartment</mat-icon>
-                <input formControlName="tenantCode"
-                       placeholder="e.g. testschool"
-                       (focus)="focused = 'school'"
-                       (blur)="focused = ''"
-                       autocomplete="organization" />
+            @if (!schoolCodeFromHost()) {
+              <div class="field-group">
+                <label class="field-label">School Code</label>
+                <div class="input-wrap" [class.focused]="focused === 'school'" [class.error]="form.get('tenantCode')?.invalid && form.get('tenantCode')?.touched">
+                  <mat-icon class="input-icon">apartment</mat-icon>
+                  <input formControlName="tenantCode"
+                         placeholder="e.g. testschool"
+                         (focus)="focused = 'school'"
+                         (blur)="focused = ''"
+                         autocomplete="organization" />
+                </div>
+                @if (form.get('tenantCode')?.invalid && form.get('tenantCode')?.touched) {
+                  <div class="field-error">School code is required</div>
+                }
               </div>
-              @if (form.get('tenantCode')?.invalid && form.get('tenantCode')?.touched) {
-                <div class="field-error">School code is required</div>
-              }
-            </div>
+            }
 
             <div class="field-group">
               <label class="field-label">Email Address</label>
@@ -250,6 +259,12 @@ import { AuthService } from '../../../core/services/auth.service';
       h2 { font-size: 20px; font-weight: 600; color: #111827; margin: 0 0 6px; letter-spacing: -.3px; }
       p  { font-size: 13px; color: #6B7280; margin: 0; }
     }
+    .school-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE;
+      border-radius: 6px; padding: 3px 10px; font-size: 12px; font-weight: 600;
+      letter-spacing: .04em; margin-top: 2px;
+    }
 
     .login-form { display: flex; flex-direction: column; gap: 16px; }
 
@@ -363,15 +378,16 @@ import { AuthService } from '../../../core/services/auth.service';
     }
   `],
 })
-export class LoginComponent {
+export class LoginComponent implements OnInit {
   private fb     = inject(FormBuilder);
   private auth   = inject(AuthService);
   private router = inject(Router);
 
-  showPw  = signal(false);
-  loading = signal(false);
-  error   = signal('');
-  focused = '';
+  showPw            = signal(false);
+  loading           = signal(false);
+  error             = signal('');
+  focused           = '';
+  schoolCodeFromHost = signal('');
 
   features = [
     { icon: 'people',       label: 'Student enrolment & attendance' },
@@ -382,10 +398,28 @@ export class LoginComponent {
   ];
 
   form = this.fb.nonNullable.group({
-    tenantCode: ['testschool', Validators.required],
+    tenantCode: ['', Validators.required],
     email:      ['', [Validators.required, Validators.email]],
     password:   ['', Validators.required],
   });
+
+  ngOnInit() {
+    const code = this.detectSchoolCode();
+    if (code) {
+      this.schoolCodeFromHost.set(code);
+      this.form.patchValue({ tenantCode: code });
+    }
+  }
+
+  private detectSchoolCode(): string {
+    const hostname = window.location.hostname.toLowerCase();
+    if (hostname === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(hostname)) return '';
+    const parts = hostname.split('.');
+    if (parts.length < 3) return '';
+    const sub = parts[0];
+    if (['www', 'app', 'platform', 'api'].includes(sub)) return '';
+    return sub;
+  }
 
   submit() {
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }

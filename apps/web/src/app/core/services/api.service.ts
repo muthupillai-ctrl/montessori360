@@ -35,4 +35,14 @@ export class ApiService {
   delete<T>(path: string, options?: { body?: any }): Observable<T> {
     return this.http.delete<T>(`${this.base}${path}`, { body: options?.body });
   }
+
+  download(path: string, params?: Record<string, string>): Observable<Blob> {
+    let httpParams = new HttpParams();
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') httpParams = httpParams.set(k, v);
+      });
+    }
+    return this.http.get(`${this.base}${path}`, { params: httpParams, responseType: 'blob' });
+  }
 }

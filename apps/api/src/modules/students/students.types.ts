@@ -1,5 +1,3 @@
-import type { EmergencyContact } from '@montessori360/shared';
-
 // ── Database row shapes ───────────────────────────────────────────────────────
 
 export interface StudentRow {
@@ -13,8 +11,8 @@ export interface StudentRow {
   profile_photo: string | null;
   blood_group: string | null;
   nationality: string;
+  mother_tongue: string | null;
   aadhar_no: string | null;
-  emergency_contacts: EmergencyContact[];
   medical_notes: MedicalNotes;
   dietary_notes: string | null;
   allergies: string[];
@@ -27,6 +25,10 @@ export interface StudentRow {
   updated_at: Date;
   // Joined fields
   class_name?: string;
+  emergency_mobile?: string | null;
+  emergency_first_name?: string | null;
+  emergency_last_name?: string | null;
+  emergency_relation?: string | null;
 }
 
 export interface ClassRow {
@@ -53,6 +55,23 @@ export interface MedicalNotes {
 
 // ── Request / response DTOs ───────────────────────────────────────────────────
 
+export interface ParentDto {
+  relation:             'father' | 'mother' | 'guardian' | 'step_father' | 'step_mother' | 'other';
+  first_name:           string;
+  last_name:            string;
+  mobile:               string;
+  email?:               string;
+  mobile_alt?:          string;
+  is_primary?:          boolean;
+  is_emergency_contact?: boolean;
+  address_line1?:       string;
+  address_line2?:       string;
+  city?:                string;
+  state?:               string;
+  country?:             string;
+  pincode?:             string;
+}
+
 export interface CreateStudentDto {
   first_name: string;
   last_name: string;
@@ -61,8 +80,9 @@ export interface CreateStudentDto {
   class_id?: string;
   blood_group?: string;
   nationality?: string;
+  mother_tongue?: string;
   aadhar_no?: string;
-  emergency_contacts: EmergencyContact[];
+  parents?: ParentDto[];
   medical_notes?: MedicalNotes;
   dietary_notes?: string;
   allergies?: string[];

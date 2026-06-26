@@ -67,7 +67,7 @@ export const createShiftSchema = z.object({
 });
 
 export const staffFiltersSchema = z.object({
-  role:      z.enum(['owner','principal','teacher','assistant_teacher','accountant','driver','support','admission_staff','rfid_admin']).optional(),
+  role:      z.string().optional(),   // single role or comma-separated e.g. "teacher,principal"
   is_active: z.preprocess(v => v === 'false' ? false : v === 'true' ? true : v, z.boolean()).optional(),
   search:    z.string().max(100).optional(),
   page:      z.preprocess(Number, z.number().int().min(1)).optional().default(1),
@@ -120,6 +120,7 @@ function validateQuery(schema: z.ZodSchema) {
   };
 }
 
+export const validateSetPassword    = validateBody(z.object({ password: z.string().min(8) }));
 export const validateCreateStaff    = validateBody(createStaffSchema);
 export const validateUpdateStaff    = validateBody(updateStaffSchema);
 export const validateRequestLeave   = validateBody(requestLeaveSchema);

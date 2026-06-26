@@ -14,7 +14,7 @@ const feeHeadSchema = z.object({
 
 const lineItemSchema = z.object({
   name:        z.string().min(1).max(100),
-  amount:      z.number().min(0),
+  amount:      z.number(),
   description: z.string().max(255).optional(),
 });
 

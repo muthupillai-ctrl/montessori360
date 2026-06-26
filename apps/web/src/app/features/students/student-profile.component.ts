@@ -77,7 +77,9 @@ import type { ParentRecord } from './parent-form-dialog.component';
               </div>
               <div class="info-item">
                 <div class="ii-label">Nationality</div>
-                <div class="ii-value">{{ s.nationality || '—' }}</div>
+                <div class="ii-value">
+                  {{ s.nationality || '—' }}@if (s.mother_tongue) {<span class="lang-sep">, </span>{{ s.mother_tongue }}}
+                </div>
               </div>
               <div class="info-item">
                 <div class="ii-label">Admission Date</div>
@@ -283,33 +285,6 @@ import type { ParentRecord } from './parent-form-dialog.component';
             }
           </div>
 
-          <!-- Emergency contacts -->
-          @if (s.emergency_contacts && s.emergency_contacts.length) {
-            <div class="section">
-              <div class="section-title">
-                <mat-icon>contacts</mat-icon> Emergency Contacts
-              </div>
-              <div class="contacts-list">
-                @for (c of s.emergency_contacts; track c.phone) {
-                  <div class="contact-row">
-                    <div class="cr-av">{{ c.name[0] }}</div>
-                    <div class="cr-info">
-                      <div class="cr-name">
-                        {{ c.name }}
-                        @if (c.is_primary) {
-                          <span class="primary-tag">Primary</span>
-                        }
-                      </div>
-                      <div class="cr-detail">{{ c.relation | titlecase }} · {{ c.phone }}</div>
-                    </div>
-                    <a [href]="'tel:' + c.phone" class="call-btn">
-                      <mat-icon style="font-size:16px;width:16px;height:16px">call</mat-icon>
-                    </a>
-                  </div>
-                }
-              </div>
-            </div>
-          }
 
         </div>
       }
@@ -408,6 +383,7 @@ import type { ParentRecord } from './parent-form-dialog.component';
     }
     .ii-label { font-size: 10px; color: var(--text-4); text-transform: uppercase; letter-spacing: .3px; margin-bottom: 3px; }
     .ii-value { font-size: 13px; font-weight: 500; color: var(--text); }
+    .lang-sep { color: var(--text-4); }
 
     .tags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 2px; }
     .tag { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 5px; }

@@ -4,9 +4,11 @@ import {
   validateCreateStaff, validateUpdateStaff, validateRequestLeave,
   validateReviewLeave, validateCreateShift,
   validateStaffFilters, validateLeaveFilters, validatePayrollFilters,
+  validateSetPassword,
 } from './staff.validators.js';
 import {
   listStaff, getStaffMember, createStaffMember, updateStaffMember, deactivateStaffMember,
+  setStaffPassword,
   getLeaveBalance, listLeaveRequests, requestLeave, reviewLeave, cancelLeave,
   listAllLeaveBalances, updateLeaveBalance, initAllLeaveBalances,
   getMyPaySlip,
@@ -28,6 +30,7 @@ staffRouter.get(   '/me',        authorize(...ALL_STAFF),    getStaffMember);
 staffRouter.get(   '/:id',       authorize(...HR_ROLES),     getStaffMember);
 staffRouter.put(   '/:id',       authorize(...ADMIN_ROLES),  validateUpdateStaff,  updateStaffMember);
 staffRouter.delete('/:id',       authorize(...ADMIN_ROLES),  deactivateStaffMember);
+staffRouter.post(  '/:id/set-password', authorize(...ADMIN_ROLES), validateSetPassword, setStaffPassword);
 
 // ── Leave ──────────────────────────────────────────────────────────────────────
 // Any staff can view their own balance / request leave

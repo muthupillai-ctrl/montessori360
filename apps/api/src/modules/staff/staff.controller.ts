@@ -55,6 +55,15 @@ export async function updateStaffMember(req: Request, res: Response): Promise<vo
   res.json({ data: row, message: 'Staff member updated successfully' });
 }
 
+export async function setStaffPassword(req: Request, res: Response): Promise<void> {
+  const target = await staffService.getById(req.user!.tenantSchema, req.params['id'] as string);
+  try { checkCanManage(req.user!.role, target.role); } catch (e: any) {
+    res.status(e.statusCode ?? 403).json({ error: { code: 'FORBIDDEN', message: e.message } }); return;
+  }
+  await staffService.setPassword(req.user!.tenantSchema, String(req.params.id), req.body.password);
+  res.json({ message: 'Password updated successfully' });
+}
+
 export async function deactivateStaffMember(req: Request, res: Response): Promise<void> {
   const target = await staffService.getById(req.user!.tenantSchema, req.params['id'] as string);
   try { checkCanManage(req.user!.role, target.role); } catch (e: any) {

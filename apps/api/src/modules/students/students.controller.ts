@@ -5,8 +5,24 @@ import { sendParentInviteEmail } from '../../utils/email.js';
 import { query } from '../../config/database.js';
 import { cacheDel, cacheDelPattern } from '../../config/redis.js';
 import { AppError } from '../../middleware/errorHandler.js';
+import { generateStudentsXlsx, generateStudentsPdf } from './students-export.js';
 
 // ── Students ──────────────────────────────────────────────────────────────────
+
+export async function exportStudents(req: Request, res: Response): Promise<void> {
+  const schema  = req.user!.tenantSchema;
+  const format  = ((req.query['format'] as string) || 'xlsx').toLowerCase();
+  const classId = req.query['class_id'] as string | undefined;
+
+  const students = await studentsService.exportStudents(schema, classId || undefined);
+  const label    = classId ? (students[0]?.class_name ?? 'Class') : 'All School';
+
+  if (format === 'pdf') {
+    generateStudentsPdf(students, res, label);
+  } else {
+    await generateStudentsXlsx(students, res, label);
+  }
+}
 
 export async function listStudents(req: Request, res: Response): Promise<void> {
   const schema = req.user!.tenantSchema;
@@ -195,6 +211,14 @@ export async function deleteParent(req: Request, res: Response): Promise<void> {
     req.params['parentId'] as string
   );
   res.json({ message: 'Parent record deleted' });
+}
+
+export async function listParentsGroupedByStudent(req: Request, res: Response): Promise<void> {
+  const schema  = req.user!.tenantSchema;
+  const search  = req.query['search']   as string | undefined;
+  const classId = req.query['class_id'] as string | undefined;
+  const data    = await studentsService.listParentsGroupedByStudent(schema, search, classId);
+  res.json({ data });
 }
 
 export async function listAllParents(req: Request, res: Response): Promise<void> {
