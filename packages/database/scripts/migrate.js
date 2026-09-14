@@ -64,6 +64,7 @@ async function run() {
     console.log('\n🎉 Done!');
   } catch (err) {
     console.error('❌ Migration failed:', err.message);
+    console.error(err.stack);
     process.exit(1);
   } finally {
     client.release();

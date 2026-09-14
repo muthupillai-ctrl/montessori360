@@ -34,6 +34,7 @@ export interface StudentRow {
 export interface ClassRow {
   id: string;
   name: string;
+  level: 'montessori' | 'primary' | 'high_school' | null;
   age_group_min: number | null;
   age_group_max: number | null;
   teacher_id: string | null;
@@ -70,6 +71,12 @@ export interface ParentDto {
   state?:               string;
   country?:             string;
   pincode?:             string;
+  profession?:          string;
+  employer?:            string;
+  annual_income?:       number;
+  education?:           string;
+  can_pickup?:          boolean;
+  notes?:               string;
 }
 
 export interface CreateStudentDto {

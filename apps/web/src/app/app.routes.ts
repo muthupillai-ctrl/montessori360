@@ -106,6 +106,7 @@ export const routes: Routes = [
         data: { roles: [...ADMIN, 'admission_staff'] },
       },
 
+
       // Timetable — academic staff
       {
         path: 'timetable',
@@ -198,6 +199,14 @@ export const routes: Routes = [
         loadComponent: () => import('./features/ai/ai-insights.component').then(m => m.AiInsightsComponent),
         canActivate: [roleGuard],
         data: { roles: [...ADMIN] },
+      },
+
+      // Integration API keys — admin only
+      {
+        path: 'integration',
+        loadComponent: () => import('./features/integration/api-keys.component').then(m => m.ApiKeysComponent),
+        canActivate: [roleGuard],
+        data: { roles: ADMIN },
       },
     ],
   },

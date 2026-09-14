@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { authService } from './auth.service.js';
+import { query } from '../../config/database.js';
 
 export async function login(req: Request, res: Response): Promise<void> {
   const { email, password, tenantCode } = req.body as { email: string; password: string; tenantCode: string };
@@ -49,4 +50,17 @@ export async function setParentPassword(req: Request, res: Response): Promise<vo
   const { token, newPassword } = req.body as { token: string; newPassword: string };
   await authService.setPasswordFromInvite(token, newPassword);
   res.json({ message: 'Password set. You can now log in.' });
+}
+
+export async function checkTenant(req: Request, res: Response): Promise<void> {
+  const code = String(req.params['code'] ?? '').toLowerCase().trim();
+  const rows = await query<{ name: string }>(
+    `SELECT name FROM public.tenants WHERE code = $1 AND is_active = true`,
+    [code]
+  );
+  if (rows.length === 0) {
+    res.json({ exists: false });
+    return;
+  }
+  res.json({ exists: true, name: rows[0].name });
 }

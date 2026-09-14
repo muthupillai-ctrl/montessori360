@@ -191,8 +191,11 @@ export class PlatformAiUsageComponent implements OnInit {
 
   featureLabel(f: string): string {
     const map: Record<string, string> = {
-      remark_assist: 'Remark Assist (Journal)',
-      insights:      'AI Insights',
+      remark_assist:              'Remark Assist (Journal)',
+      insights:                   'AI Insights',
+      ams_worksheet_generate:     'Worksheet Generator (AMS)',
+      ams_lesson_plan_generate:   'Lesson Plan Generator (AMS)',
+      ams_question_paper_generate:'Question Paper Generator (AMS)',
     };
     return map[f] ?? f;
   }

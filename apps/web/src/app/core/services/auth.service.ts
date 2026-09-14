@@ -1,7 +1,7 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { tap, catchError, throwError } from 'rxjs';
+import { tap, catchError, throwError, Observable, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import type { LoginRequest, LoginResponse, AuthUser } from '../models';
 
@@ -70,6 +70,12 @@ export class AuthService {
         localStorage.setItem('access_token', res.accessToken);
       })
     );
+  }
+
+  checkTenant(code: string): Observable<{ exists: boolean; name?: string }> {
+    return this.http.get<{ exists: boolean; name?: string }>(
+      `${environment.apiUrl}/auth/tenant/${encodeURIComponent(code)}`
+    ).pipe(catchError(() => of({ exists: false })));
   }
 
   private loadUser(): AuthUser | null {

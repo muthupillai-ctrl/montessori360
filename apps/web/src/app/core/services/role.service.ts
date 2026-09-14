@@ -35,8 +35,9 @@ export interface NavItem {
 }
 
 export interface NavGroup {
-  label: string;
-  items: NavItem[];
+  label:    string;
+  items:    NavItem[];
+  showAms?: boolean;
 }
 
 // ── Nav definitions ───────────────────────────────────────────────────────────
@@ -54,6 +55,7 @@ function principalNav(): NavGroup[] {
     },
     {
       label: 'Academics',
+      showAms: true,
       items: [
         { label: 'Classes',        icon: 'door',              route: '/classes' },
         { label: 'Timetable',      icon: 'table-column',      route: '/timetable' },
@@ -77,7 +79,8 @@ function principalNav(): NavGroup[] {
     {
       label: 'Intelligence',
       items: [
-        { label: 'AI Insights', icon: 'brain', route: '/ai-insights' },
+        { label: 'AI Insights',  icon: 'brain',   route: '/ai-insights' },
+        { label: 'Integration',  icon: 'api',     route: '/integration' },
       ],
     },
   ];
@@ -99,8 +102,10 @@ const NAV_BY_ROLE: Record<AppRole, NavGroup[]> = {
     },
     {
       label: 'Classroom',
+      showAms: true,
       items: [
         { label: 'Students',     icon: 'users',           route: '/students' },
+        { label: 'Syllabus',     icon: 'books',           route: '/syllabus' },
         { label: 'Observations', icon: 'plant-2',         route: '/observations' },
         { label: 'Homework',     icon: 'writing',         route: '/homework' },
         { label: 'Timetable',    icon: 'table-column',    route: '/timetable' },
@@ -127,10 +132,11 @@ const NAV_BY_ROLE: Record<AppRole, NavGroup[]> = {
     },
     {
       label: 'Classroom',
+      showAms: true,
       items: [
-        { label: 'Students',     icon: 'users',        route: '/students' },
-        { label: 'Observations', icon: 'plant-2',      route: '/observations' },
-        { label: 'Homework',     icon: 'writing',      route: '/homework' },
+        { label: 'Students',     icon: 'users',           route: '/students' },
+        { label: 'Observations', icon: 'plant-2',         route: '/observations' },
+        { label: 'Homework',     icon: 'writing',         route: '/homework' },
       ],
     },
     {

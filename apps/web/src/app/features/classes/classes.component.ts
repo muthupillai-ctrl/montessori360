@@ -11,6 +11,7 @@ import { AuthService } from '../../core/services/auth.service';
 interface ClassRow {
   id: string;
   name: string;
+  level: 'montessori' | 'primary' | 'high_school' | null;
   age_group_min: number | null;
   age_group_max: number | null;
   section: string | null;
@@ -225,6 +226,16 @@ interface StaffMember {
                   }
                 </div>
 
+                <div class="field-group">
+                  <label class="fl">School Level</label>
+                  <select class="fi" formControlName="level">
+                    <option value="">— Not set —</option>
+                    <option value="montessori">Montessori</option>
+                    <option value="primary">Primary</option>
+                    <option value="high_school">High School</option>
+                  </select>
+                </div>
+
                 <div class="form-row">
                   <div class="field-group fill">
                     <label class="fl">Section <span style="font-size:10px;color:var(--text-4);font-weight:400">— optional, e.g. A, B, C</span></label>
@@ -437,6 +448,7 @@ export class ClassesComponent implements OnInit {
 
   form = this.fb.group({
     name:          ['', Validators.required],
+    level:         ['' as string],
     room_number:   [''],
     capacity:      [20, [Validators.required, Validators.min(1)]],
     age_group_min: [null as number | null],
@@ -484,6 +496,7 @@ export class ClassesComponent implements OnInit {
     if (cls) {
       this.form.patchValue({
         name:          cls.name,
+        level:         cls.level ?? '',
         room_number:   cls.room_number ?? '',
         capacity:      cls.capacity,
         age_group_min: cls.age_group_min,
@@ -508,6 +521,7 @@ export class ClassesComponent implements OnInit {
       name:     v.name,
       capacity: +v.capacity!,
     };
+    payload['level']        = v.level || null;
     if (v.section?.trim())      payload['section']       = v.section.trim() || null;
     if (v.room_number?.trim())  payload['room_number']   = v.room_number.trim();
     if (v.age_group_min)        payload['age_group_min'] = +v.age_group_min;

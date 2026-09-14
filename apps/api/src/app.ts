@@ -27,6 +27,7 @@ import { platformAdminRouter } from './modules/platform-admin/platform-admin.rou
 import { parentRouter } from './modules/parent/parent.routes.js';
 import { homeworkRouter } from './modules/parent/homework.routes.js';
 import { aiRouter } from './modules/ai/ai.routes.js';
+import { integrationRouter } from './modules/integration/integration.routes.js';
 
 export function createApp(): Application {
   const app = express();
@@ -90,7 +91,8 @@ export function createApp(): Application {
   v1.use('/promotion', promotionRouter);
   v1.use('/parent',   parentRouter);
   v1.use('/homework', homeworkRouter);
-  v1.use('/ai',       aiRouter);
+  v1.use('/ai',          aiRouter);
+  v1.use('/integration', integrationRouter);
 
   app.use('/api/v1', v1);
 

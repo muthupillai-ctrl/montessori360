@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { login, refresh, logout, forgotPassword, resetPassword, setParentPassword } from './auth.controller.js';
+import { login, refresh, logout, forgotPassword, resetPassword, setParentPassword, checkTenant } from './auth.controller.js';
 import { validateLogin, validateForgotPassword, validateResetPassword } from './auth.validators.js';
 import { authenticate } from '../../middleware/auth.js';
 
@@ -11,3 +11,4 @@ authRouter.post('/logout',         authenticate,           logout);
 authRouter.post('/forgot-password', validateForgotPassword, forgotPassword);
 authRouter.post('/reset-password',        validateResetPassword, resetPassword);
 authRouter.post('/parent/set-password',                        setParentPassword);
+authRouter.get('/tenant/:code',                                checkTenant);

@@ -1,4 +1,3 @@
-import fs from 'fs';
 import { Pool, PoolClient } from 'pg';
 import { logger } from '../utils/logger.js';
 
@@ -11,35 +10,20 @@ export function getPool(): Pool {
 }
 
 export async function connectDatabase(): Promise<void> {
-  if (!process.env.DB_CERT_PATH) {
-    throw new Error('DB_CERT_PATH is not configured');
-  }
+  const url = process.env['DATABASE_URL'];
+  if (!url) throw new Error('DATABASE_URL is not configured');
 
-pool = new Pool({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  min: 0,
-  max: parseInt(process.env.DATABASE_POOL_MAX ?? '10', 10),
-  idleTimeoutMillis: 5_000,        // close idle connections before Aiven LB kills them
-  connectionTimeoutMillis: 15_000,
-  keepAlive: false,                 // don't bother — we close idle connections quickly anyway
-  ssl: {
-    rejectUnauthorized: false,
-    ca: fs.readFileSync(process.env.DB_CERT_PATH).toString(),
-  },
-});
+  const cleanUrl = url.replace(/[?&]sslmode=[^&]*/g, '').replace(/\?$/, '');
 
-  //pool = new Pool({
-   // connectionString: process.env.DATABASE_URL,
-   // min: parseInt(process.env.DATABASE_POOL_MIN ?? '2', 10),
-   // max: parseInt(process.env.DATABASE_POOL_MAX ?? '10', 10),
-   // idleTimeoutMillis: 30_000,
-   // connectionTimeoutMillis: 5_000,
-   // ...sslConfig,
-  //});
+  pool = new Pool({
+    connectionString: cleanUrl,
+    ssl: url.includes('localhost') ? false : { rejectUnauthorized: false },
+    min: 0,
+    max: parseInt(process.env['DATABASE_POOL_MAX'] ?? '10', 10),
+    idleTimeoutMillis: 5_000,
+    connectionTimeoutMillis: 15_000,
+    keepAlive: false,
+  });
 
   pool.on('error', (err: any) => {
     // ETIMEDOUT / ECONNRESET are expected when Aiven's LB drops idle connections

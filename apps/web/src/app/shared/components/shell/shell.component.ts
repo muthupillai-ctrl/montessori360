@@ -8,6 +8,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { AuthService } from '../../../core/services/auth.service';
 import { RoleService } from '../../../core/services/role.service';
 import { ApiService } from '../../../core/services/api.service';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-shell',
@@ -49,7 +50,14 @@ import { ApiService } from '../../../core/services/api.service';
         <!-- Nav -->
         <nav class="sb-nav" aria-label="Main navigation">
           @for (group of roles.navGroups(); track group.label) {
-            <div class="sb-group-label">{{ group.label }}</div>
+            <div class="sb-group-label">
+              <span>{{ group.label }}</span>
+              @if (group.showAms) {
+                <button class="sb-ams-chip" (click)="openAms()">
+                  <i class="ti ti-external-link" style="font-size:10px"></i> AMS Link
+                </button>
+              }
+            </div>
             @for (item of group.items; track item.route) {
               <a class="sb-item"
                  [routerLink]="item.route"
@@ -354,10 +362,21 @@ import { ApiService } from '../../../core/services/api.service';
     .sb-nav { flex: 1; padding: 4px 8px; }
 
     .sb-group-label {
+      display: flex; align-items: center; justify-content: space-between;
       font-size: 9px; font-weight: 600;
       text-transform: uppercase; letter-spacing: .07em;
       color: rgba(255,255,255,.3);
       padding: 12px 8px 4px;
+    }
+    .sb-ams-chip {
+      display: inline-flex; align-items: center; gap: 3px;
+      background: #7c3aed; color: #fff;
+      border: none;
+      border-radius: 4px; padding: 2px 7px;
+      font-size: 9px; font-weight: 700; letter-spacing: .04em;
+      text-transform: uppercase; cursor: pointer;
+      transition: background .15s;
+      &:hover { background: #6d28d9; }
     }
 
     .sb-item {
@@ -682,6 +701,15 @@ export class ShellComponent implements OnInit {
   quickNav(path: string, queryParams: Record<string, string>) {
     const params = Object.keys(queryParams).length ? queryParams : undefined;
     this.router.navigate([path], { queryParams: params });
+  }
+
+  openAms() {
+    const token = localStorage.getItem('access_token');
+    const user  = localStorage.getItem('auth_user');
+    if (!token) return;
+    const params = new URLSearchParams({ token });
+    if (user) params.set('user', btoa(unescape(encodeURIComponent(user))));
+    window.open(`${environment.amsUrl}/sso?${params.toString()}`, '_blank');
   }
 
   private lastOpenedKey(): string {

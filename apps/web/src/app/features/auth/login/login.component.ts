@@ -52,12 +52,19 @@ import { AuthService } from '../../../core/services/auth.service';
       <div class="login-right">
         <div class="login-card">
 
+          @if (checkingTenant()) {
+            <div class="tenant-checking">
+              <mat-progress-spinner diameter="24" mode="indeterminate"
+                style="--mdc-circular-progress-active-indicator-color:#2563EB" />
+            </div>
+          } @else {
+
           <div class="card-header">
             <h2>Welcome back</h2>
             @if (schoolCodeFromHost()) {
               <div class="school-badge">
                 <mat-icon style="font-size:13px;width:13px;height:13px">apartment</mat-icon>
-                {{ schoolCodeFromHost().toUpperCase() }}
+                {{ schoolName() || schoolCodeFromHost().toUpperCase() }}
               </div>
             } @else {
               <p>Sign in to your admin portal</p>
@@ -105,7 +112,7 @@ import { AuthService } from '../../../core/services/auth.service';
             <div class="field-group">
               <div style="display:flex;justify-content:space-between;align-items:center">
                 <label class="field-label">Password</label>
-                <a class="forgot-link" routerLink="/forgot-password">Forgot password?</a>
+                <a class="forgot-link" routerLink="/forgot-password" (click)="goForgotPassword($event)">Forgot password?</a>
               </div>
               <div class="input-wrap" [class.focused]="focused === 'pw'" [class.error]="form.get('password')?.invalid && form.get('password')?.touched">
                 <mat-icon class="input-icon">lock_outline</mat-icon>
@@ -140,6 +147,8 @@ import { AuthService } from '../../../core/services/auth.service';
             </button>
 
           </form>
+
+          } <!-- end @else checkingTenant -->
 
         </div>
 
@@ -252,6 +261,13 @@ import { AuthService } from '../../../core/services/auth.service';
       border: 1px solid #E5E7EB;
       border-radius: 14px;
       padding: 32px;
+    }
+
+    .tenant-checking {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 120px;
     }
 
     .card-header {
@@ -383,11 +399,13 @@ export class LoginComponent implements OnInit {
   private auth   = inject(AuthService);
   private router = inject(Router);
 
-  showPw            = signal(false);
-  loading           = signal(false);
-  error             = signal('');
-  focused           = '';
+  showPw             = signal(false);
+  loading            = signal(false);
+  checkingTenant     = signal(true);
+  error              = signal('');
+  focused            = '';
   schoolCodeFromHost = signal('');
+  schoolName         = signal('');
 
   features = [
     { icon: 'people',       label: 'Student enrolment & attendance' },
@@ -404,14 +422,22 @@ export class LoginComponent implements OnInit {
   });
 
   ngOnInit() {
-    const code = this.detectSchoolCode();
-    if (code) {
-      this.schoolCodeFromHost.set(code);
-      this.form.patchValue({ tenantCode: code });
+    const sub = this.subdomainFromHost();
+    if (!sub) {
+      this.checkingTenant.set(false);
+      return;
     }
+    this.auth.checkTenant(sub).subscribe(res => {
+      if (res.exists) {
+        this.schoolCodeFromHost.set(sub);
+        this.schoolName.set(res.name ?? '');
+        this.form.patchValue({ tenantCode: sub });
+      }
+      this.checkingTenant.set(false);
+    });
   }
 
-  private detectSchoolCode(): string {
+  private subdomainFromHost(): string {
     const hostname = window.location.hostname.toLowerCase();
     if (hostname === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(hostname)) return '';
     const parts = hostname.split('.');
@@ -419,6 +445,11 @@ export class LoginComponent implements OnInit {
     const sub = parts[0];
     if (['www', 'app', 'platform', 'api'].includes(sub)) return '';
     return sub;
+  }
+
+  goForgotPassword(event: Event) {
+    event.preventDefault();
+    this.router.navigate(['/forgot-password']);
   }
 
   submit() {

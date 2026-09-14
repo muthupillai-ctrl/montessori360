@@ -1,7 +1,8 @@
 import path from 'path';
 import * as dotenv from 'dotenv';
 
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+const envPath = path.resolve(process.cwd(), '.env');
+dotenv.config({ path: envPath });
 
 
 import { createApp } from './app.js';
@@ -11,6 +12,8 @@ import { connectRedis } from './config/redis.js';
 import { startInsightsJob } from './modules/ai/insights.job.js';
 
 const PORT = parseInt(process.env.PORT ?? '3000', 10);
+
+logger.info(`Loading .env from: ${envPath}, PORT=${PORT}`);
 
 async function bootstrap() {
   try {

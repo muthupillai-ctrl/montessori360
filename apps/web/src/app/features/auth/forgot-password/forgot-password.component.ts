@@ -1,4 +1,4 @@
-import { Component, signal, inject } from '@angular/core';
+import { Component, signal, inject, OnInit } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
@@ -37,16 +37,18 @@ import { ApiService } from '../../../core/services/api.service';
               }
             </div>
 
-            <div class="field">
-              <label>School code</label>
-              <div class="input-wrap" [class.error]="form.get('tenantCode')?.invalid && form.get('tenantCode')?.touched">
-                <mat-icon class="ico">business</mat-icon>
-                <input formControlName="tenantCode" type="text" placeholder="e.g. springdale" autocomplete="off" />
+            @if (!schoolCodeFromHost()) {
+              <div class="field">
+                <label>School code</label>
+                <div class="input-wrap" [class.error]="form.get('tenantCode')?.invalid && form.get('tenantCode')?.touched">
+                  <mat-icon class="ico">business</mat-icon>
+                  <input formControlName="tenantCode" type="text" placeholder="e.g. springdale" autocomplete="off" />
+                </div>
+                @if (form.get('tenantCode')?.invalid && form.get('tenantCode')?.touched) {
+                  <span class="err">School code is required</span>
+                }
               </div>
-              @if (form.get('tenantCode')?.invalid && form.get('tenantCode')?.touched) {
-                <span class="err">School code is required</span>
-              }
-            </div>
+            }
 
             @if (error()) {
               <div class="error-banner">
@@ -143,7 +145,7 @@ import { ApiService } from '../../../core/services/api.service';
     }
   `],
 })
-export class ForgotPasswordComponent {
+export class ForgotPasswordComponent implements OnInit {
   private fb  = inject(FormBuilder);
   private api = inject(ApiService);
 
@@ -152,9 +154,21 @@ export class ForgotPasswordComponent {
     tenantCode: ['', Validators.required],
   });
 
-  loading = signal(false);
-  error   = signal('');
-  sent    = signal(false);
+  loading           = signal(false);
+  error             = signal('');
+  sent              = signal(false);
+  schoolCodeFromHost = signal('');
+
+  ngOnInit() {
+    const hostname = window.location.hostname.toLowerCase();
+    if (hostname === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(hostname)) return;
+    const parts = hostname.split('.');
+    if (parts.length < 3) return;
+    const sub = parts[0];
+    if (['www', 'app', 'platform', 'api'].includes(sub)) return;
+    this.schoolCodeFromHost.set(sub);
+    this.form.patchValue({ tenantCode: sub });
+  }
 
   submit() {
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }

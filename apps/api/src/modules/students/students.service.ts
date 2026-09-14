@@ -375,7 +375,7 @@ class StudentsService {
 
   // ── Update class ───────────────────────────────────────────────────────────
   async updateClass(schema: string, classId: string, dto: {
-    name?: string; section?: string | null; capacity?: number; age_group_min?: number | null; age_group_max?: number | null; teacher_id?: string | null; room_number?: string | null; is_active?: boolean;
+    name?: string; section?: string | null; capacity?: number; age_group_min?: number | null; age_group_max?: number | null; teacher_id?: string | null; room_number?: string | null; is_active?: boolean; level?: string | null;
   }): Promise<ClassRow> {
     const fields: string[] = [];
     const values: unknown[] = [];
@@ -385,7 +385,7 @@ class StudentsService {
       name: dto.name, section: dto.section, capacity: dto.capacity,
       age_group_min: dto.age_group_min, age_group_max: dto.age_group_max,
       teacher_id: dto.teacher_id, room_number: dto.room_number,
-      is_active: (dto as any).is_active,
+      is_active: (dto as any).is_active, level: dto.level,
     };
     for (const [col, val] of Object.entries(mapping)) {
       if (val !== undefined) { fields.push(`${col} = $${i++}`); values.push(val); }

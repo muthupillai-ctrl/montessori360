@@ -33,11 +33,14 @@ interface TokenPair {
 class AuthService {
   // ── Login ──────────────────────────────────────────────────────────────────
   async login(email: string, password: string, tenantCode: string): Promise<TokenPair> {
+    console.log(`[login] email=${email} tenantCode=${tenantCode}`);
+
     // 1. Resolve tenant
     const [tenant] = await query<TenantRow>(
       `SELECT id, schema_name, name, is_active FROM public.tenants WHERE code = $1`,
       [tenantCode.toLowerCase()]
     );
+    console.log(`[login] tenant found=${!!tenant} is_active=${tenant?.is_active} schema=${tenant?.schema_name}`);
     if (!tenant || !tenant.is_active) throw AppError.unauthorized('Invalid school code or inactive account');
 
     // 2. Find user in tenant schema
@@ -47,13 +50,16 @@ class AuthService {
        FROM staff WHERE email = $1`,
       [email.toLowerCase()]
     );
+    console.log(`[login] staff found=${!!user} is_active=${user?.is_active}`);
 
     // Also check parent table if not found in staff
     const actor = user ?? await this.findParent(tenant.schema_name, email);
+    console.log(`[login] actor resolved=${!!actor} is_active=${actor?.is_active}`);
     if (!actor || !actor.is_active) throw AppError.unauthorized('Invalid credentials');
 
     // 3. Verify password
     const valid = await bcrypt.compare(password, actor.password_hash);
+    console.log(`[login] password valid=${valid}`);
     if (!valid) throw AppError.unauthorized('Invalid credentials');
 
     // 4. Issue tokens
@@ -179,8 +185,6 @@ class AuthService {
       `SELECT id, email FROM staff WHERE email = $1 AND is_active = true`,
       [lowerEmail]
     );
-    console.log('[forgotPassword] staff found:', !!staff);
-
     const [parent] = !staff
       ? await tenantQuery<UserRow>(
           tenant.schema_name,
@@ -188,14 +192,9 @@ class AuthService {
           [lowerEmail]
         )
       : [undefined];
-    console.log('[forgotPassword] parent found:', !!parent, 'is_active:', (parent as any)?.is_active);
 
     const actor = staff ?? parent;
-    if (!actor) {
-      console.log('[forgotPassword] no account found for', lowerEmail);
-      return;
-    }
-    console.log('[forgotPassword] sending reset to', lowerEmail, 'as', staff ? 'staff' : 'parent');
+    if (!actor) return;
 
     const userType = staff ? 'staff' : 'parent';
     const resetToken = uuidv4();

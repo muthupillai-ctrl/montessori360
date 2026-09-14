@@ -18,9 +18,6 @@ export async function sendPasswordResetEmail(to: string, resetLink: string): Pro
     logger.warn(`[email] SMTP not configured — reset link for ${to}: ${resetLink}`);
     return;
   }
-console.log('SMTP User:', process.env.SMTP_USER);
-console.log('SMTP Pass:', process.env.SMTP_PASS);
-console.log('SMTP Pass Length:', process.env.SMTP_PASS?.length);
   logger.info(`[email] Connecting to SMTP ${process.env.SMTP_HOST}:${process.env.SMTP_PORT} user=${process.env.SMTP_USER}`);
 
   const from = process.env.SMTP_FROM ?? process.env.SMTP_USER;

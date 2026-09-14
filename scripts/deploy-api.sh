@@ -1,44 +1,61 @@
 #!/bin/bash
-set -e
+# Deploy SIS API (apps/api) to EC2 — build locally, rsync dist, PM2 restart
+# Pass --deps to also sync package files and run npm ci (only needed when deps change)
+set -euo pipefail
 
 EC2_HOST="ubuntu@3.25.186.29"
-EC2_KEY="$HOME/.ssh/montessori3.pem"
-REMOTE_DIR="/home/ubuntu/montessori360"
-PM2_APP="montessori360-api"
+EC2_KEY="${EC2_KEY:-$HOME/.ssh/montessori3.pem}"
+REMOTE_DIR="${REMOTE_DIR:-/home/ubuntu/montessori360}"
+PM2_NAME="montessori360-api"
+LOCAL_DIST="apps/api/dist"
 
-echo "==> Syncing source to EC2..."
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$REPO_ROOT"
+
+echo "🚀 Deploying SIS API → $EC2_HOST:$REMOTE_DIR"
+
+echo "→ Building..."
+npm run build --workspace=apps/api
+
+echo "→ Syncing dist to EC2..."
+ssh -i "$EC2_KEY" "$EC2_HOST" "mkdir -p $REMOTE_DIR/apps/api/dist"
 rsync -avz --delete \
   -e "ssh -i $EC2_KEY" \
-  --exclude='node_modules' \
-  --exclude='dist' \
-  --exclude='apps/web' \
-  --exclude='.env' \
-  ./ "$EC2_HOST:$REMOTE_DIR/"
+  "$LOCAL_DIST/" \
+  "$EC2_HOST:$REMOTE_DIR/apps/api/dist/"
 
-echo "==> Installing dependencies and building on EC2..."
-ssh -i "$EC2_KEY" "$EC2_HOST" << 'ENDSSH'
-set -e
-cd /home/ubuntu/montessori360
+# Optional: sync package files and install deps (pass --deps flag)
+if [[ "${1:-}" == "--deps" ]]; then
+  echo "→ Syncing workspace package files..."
+  rsync -avz \
+    -e "ssh -i $EC2_KEY" \
+    package.json package-lock.json \
+    "$EC2_HOST:$REMOTE_DIR/"
+  rsync -avz \
+    -e "ssh -i $EC2_KEY" \
+    apps/api/package.json \
+    "$EC2_HOST:$REMOTE_DIR/apps/api/"
+  rsync -avz --delete \
+    -e "ssh -i $EC2_KEY" \
+    packages/ \
+    "$EC2_HOST:$REMOTE_DIR/packages/"
 
-# Install root + workspace deps
-npm ci --omit=dev --workspaces --include-workspace-root 2>/dev/null || npm install --workspaces --include-workspace-root
-
-# Build shared package first, then API
-npm run build -w packages/shared 2>/dev/null || true
-npm run build -w apps/api
-
-echo "==> Restarting API with PM2..."
-if pm2 describe montessori360-api > /dev/null 2>&1; then
-  pm2 reload montessori360-api
-else
-  pm2 start apps/api/dist/apps/api/src/index.js \
-    --name montessori360-api \
-    --cwd apps/api \
-    --env production
-  pm2 save
+  echo "→ Installing production dependencies on EC2..."
+  ssh -i "$EC2_KEY" "$EC2_HOST" \
+    "cd $REMOTE_DIR && npm ci --workspace=apps/api --omit=dev 2>&1 | tail -5"
 fi
 
-pm2 status montessori360-api
-ENDSSH
+echo "→ Restarting PM2..."
+ssh -i "$EC2_KEY" "$EC2_HOST" bash <<REMOTE
+  if pm2 describe "$PM2_NAME" > /dev/null 2>&1; then
+    pm2 restart "$PM2_NAME"
+  else
+    pm2 start "node dist/apps/api/src/index.js" \
+      --name "$PM2_NAME" \
+      --cwd "$REMOTE_DIR/apps/api" \
+      --env production
+    pm2 save
+  fi
+REMOTE
 
-echo "==> API deployment complete."
+echo "✅ SIS API deployed"
