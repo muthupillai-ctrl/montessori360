@@ -55,3 +55,7 @@ apps/api/uploads/
 .angular/cache/
 .claude/
 
+
+# Deployment
+scripts/deploy.env
+.env.production

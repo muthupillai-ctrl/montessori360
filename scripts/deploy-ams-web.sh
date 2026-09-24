@@ -1,22 +1,27 @@
 #!/bin/bash
-# Deploy AMS Web (apps/ams-web) to EC2 — build locally, rsync static files, reload Nginx
-# Pass --nginx to write/enable the Nginx config (first-time setup only)
+# Deploy AMS Web (apps/ams-web) to the home Linux server — build locally, rsync static files
+# into $REMOTE_BASE/ams-web/www, which the shared reverse-proxy container serves.
+# Flags:
+#   --nginx  (re)write the reverse-proxy site config (done automatically the first time)
 set -euo pipefail
+source "$(dirname "$0")/lib/common.sh"
 
-EC2_HOST="ubuntu@3.25.186.29"
-EC2_KEY="${EC2_KEY:-$HOME/.ssh/montessori3.pem}"
-REMOTE_WEB_DIR="/var/www/montessori360/ams-web"
 LOCAL_DIST="apps/ams-web/dist/ams-web/browser"
-DOMAIN="school-ams.ahamsys.com"
-API_PORT=3002
-NGINX_CONF="/etc/nginx/sites-available/ams-web"
+REMOTE_WWW="$REMOTE_BASE/ams-web/www"
+PROXY_ROOT="/usr/share/nginx/montessori360-ams-web"
+SITE="montessori360-ams-web"
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$REPO_ROOT"
+NGINX=false
+for arg in "$@"; do
+  case "$arg" in
+    --nginx) NGINX=true ;;
+    *) echo "Unknown flag: $arg"; exit 1 ;;
+  esac
+done
 
-echo "🚀 Deploying AMS Web → $EC2_HOST ($DOMAIN)"
+echo "🚀 Deploying AMS Web → $SERVER:$REMOTE_WWW ($AMS_WEB_HOSTS)"
+require_proxy_mount "$REMOTE_WWW"
 
-# ── 1. Build ──────────────────────────────────────────────────────────────────
 echo "→ Building Angular app..."
 npm run build --workspace=apps/ams-web
 
@@ -25,58 +30,14 @@ if [ ! -d "$LOCAL_DIST" ]; then
   exit 1
 fi
 
-# ── 2. Sync static files ──────────────────────────────────────────────────────
-echo "→ Syncing to EC2..."
-ssh -i "$EC2_KEY" "$EC2_HOST" "sudo mkdir -p $REMOTE_WEB_DIR && sudo chown ubuntu:ubuntu $REMOTE_WEB_DIR"
-rsync -avz --delete -e "ssh -i $EC2_KEY" "$LOCAL_DIST/" "$EC2_HOST:$REMOTE_WEB_DIR/"
+echo "→ Syncing static files..."
+push --delete "$LOCAL_DIST/" "$SERVER:$REMOTE_WWW/"
 
-# ── 3. Nginx config (--nginx flag = first-time setup) ─────────────────────────
-if [[ "${1:-}" == "--nginx" ]]; then
-  echo "→ Writing Nginx config for $DOMAIN..."
-  ssh -i "$EC2_KEY" "$EC2_HOST" bash <<REMOTE
-    sudo tee $NGINX_CONF > /dev/null <<'NGINX'
-server {
-    listen 80;
-    server_name $DOMAIN;
-
-    root $REMOTE_WEB_DIR;
-    index index.html;
-
-    # Proxy AMS API
-    location /api/ {
-        proxy_pass         http://localhost:$API_PORT;
-        proxy_http_version 1.1;
-        proxy_set_header   Host              \$host;
-        proxy_set_header   X-Real-IP         \$remote_addr;
-        proxy_set_header   X-Forwarded-For   \$proxy_add_x_forwarded_for;
-        proxy_set_header   X-Forwarded-Proto \$scheme;
-        proxy_read_timeout 120s;
-    }
-
-    # Angular HTML5 routing
-    location / {
-        try_files \$uri \$uri/ /index.html;
-    }
-
-    # Static asset caching
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?)$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-}
-NGINX
-
-    sudo ln -sf $NGINX_CONF /etc/nginx/sites-enabled/ams-web
-    sudo nginx -t
-    echo "✅ Nginx config written and enabled"
-    echo ""
-    echo "⚠️  DNS: point $DOMAIN → 3.25.186.29, then run:"
-    echo "   sudo certbot --nginx -d $DOMAIN"
-REMOTE
+if $NGINX || ! proxy_conf_exists "$SITE"; then
+  CONF="$(mktemp)"
+  trap 'rm -f "$CONF"' EXIT
+  render_nginx "$AMS_WEB_HOSTS" "$PROXY_ROOT" montessori360-ams-api 3002 /uploads/ > "$CONF"
+  install_proxy_conf "$SITE" "$CONF"
 fi
 
-# ── 4. Reload Nginx ───────────────────────────────────────────────────────────
-echo "→ Reloading Nginx..."
-ssh -i "$EC2_KEY" "$EC2_HOST" "sudo nginx -t && sudo systemctl reload nginx"
-
-echo "✅ AMS Web deployed → http://$DOMAIN"
+echo "✅ AMS Web deployed → $(for h in $AMS_WEB_HOSTS; do printf 'https://%s ' "$h"; done)"

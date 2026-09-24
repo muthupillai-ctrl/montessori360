@@ -1,0 +1,56 @@
+# Montessori360 backend stack on the home Linux server (/data/apps/montessori360).
+# Frontends are static files served by the shared `reverse-proxy` container;
+# it reaches these containers by name over the external `apps-network`.
+# Deployed by scripts/deploy-api.sh / deploy-ams-api.sh — edit here, not on the server.
+services:
+  api:
+    build:
+      context: ./api
+    container_name: montessori360-api
+    restart: unless-stopped
+    env_file:
+      - ./api/.env.production
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      REDIS_URL: redis://montessori360-redis:6379
+    expose:
+      - "3001"
+    depends_on:
+      - redis
+    networks:
+      - apps-network
+
+  ams-api:
+    build:
+      context: ./ams-api
+    container_name: montessori360-ams-api
+    restart: unless-stopped
+    env_file:
+      - ./ams-api/.env.production
+    environment:
+      NODE_ENV: production
+      PORT: "3002"
+      SIS_API_URL: http://montessori360-api:3001/api/v1
+    expose:
+      - "3002"
+    volumes:
+      - ./ams-api/uploads:/app/uploads
+    networks:
+      - apps-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: montessori360-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    networks:
+      - apps-network
+
+networks:
+  apps-network:
+    external: true
+
+volumes:
+  redis-data:
