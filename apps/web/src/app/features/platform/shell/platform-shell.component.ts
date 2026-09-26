@@ -23,6 +23,12 @@ import { PlatformAuthService } from '../../../core/services/platform-auth.servic
           <a class="ps-item" routerLink="/platform/schools" routerLinkActive="active">
             <mat-icon>school</mat-icon> Schools
           </a>
+          <a class="ps-item" routerLink="/platform/plans" routerLinkActive="active">
+            <mat-icon>sell</mat-icon> Plans
+          </a>
+          <a class="ps-item" href="/platform/pricing-sheet" target="_blank" rel="noopener">
+            <mat-icon>picture_as_pdf</mat-icon> Pricing sheet
+          </a>
           <a class="ps-item" routerLink="/platform/ai-usage" routerLinkActive="active">
             <mat-icon>auto_awesome</mat-icon> AI Usage
           </a>

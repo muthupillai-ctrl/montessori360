@@ -3,9 +3,10 @@ import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import { query, tenantQuery } from '../../config/database.js';
 import { AppError } from '../../middleware/errorHandler.js';
+import { annualEstimate, buildWarnings, tenantUsage, type PlanRow } from '../subscription/subscription.service.js';
 import type {
-  PlatformAdminRow, TenantRow,
-  CreateTenantDto, UpdateTenantDto, PlatformJwtPayload,
+  PlatformAdminRow, TenantRow, OwnerRow,
+  CreateTenantDto, UpdateTenantDto, CreateOwnerDto, UpdateOwnerDto, PlatformJwtPayload,
 } from './platform-admin.types.js';
 
 class PlatformAdminService {
@@ -37,26 +38,21 @@ class PlatformAdminService {
 
   async listTenants(): Promise<TenantRow[]> {
     const rows = await query<TenantRow>(
-      `SELECT t.*, sp.name AS plan_name
+      `SELECT t.*, COALESCE(sp.display_name, sp.name) AS plan_name
        FROM   public.tenants t
        LEFT JOIN public.subscription_plans sp ON sp.id = t.subscription_plan_id
        ORDER  BY t.created_at DESC`
     );
-    // Attach live counts per tenant (best-effort; skip if schema missing)
+    const plans = new Map((await query<PlanRow>(`SELECT * FROM public.subscription_plans`)).map(p => [p.id, p]));
+    // Attach live usage, estimate and soft-limit warnings per school
     for (const row of rows) {
-      try {
-        const [counts] = await tenantQuery<{ student_count: string; staff_count: string }>(
-          row.schema_name,
-          `SELECT
-             (SELECT COUNT(*)::text FROM students WHERE is_active = true) AS student_count,
-             (SELECT COUNT(*)::text FROM staff    WHERE is_active = true) AS staff_count`
-        );
-        row.student_count = parseInt(counts?.student_count ?? '0');
-        row.staff_count   = parseInt(counts?.staff_count   ?? '0');
-      } catch {
-        row.student_count = 0;
-        row.staff_count   = 0;
-      }
+      const usage = await tenantUsage(row.schema_name);
+      const plan = row.subscription_plan_id ? plans.get(row.subscription_plan_id) ?? null : null;
+      row.student_count = usage.students;
+      row.staff_count   = usage.staff;
+      row.ai_generations_month = usage.ai_generations_month;
+      row.annual_estimate_inr = plan ? annualEstimate(plan, usage.students, Number(row.discount_pct)) : null;
+      row.warnings = buildWarnings(plan, row, usage);
     }
     return rows;
   }
@@ -109,7 +105,7 @@ class PlatformAdminService {
       );
       if (!plan) throw AppError.badRequest('Selected plan not found');
     } else {
-      const planName = dto.plan ?? 'starter';
+      const planName = dto.plan ?? 'taji_one_starter';
       [plan] = await query<{ id: string }>(
         `SELECT id FROM public.subscription_plans WHERE name = $1`, [planName]
       );
@@ -188,8 +184,95 @@ class PlatformAdminService {
     return row;
   }
 
-  async listPlans(): Promise<any[]> {
-    return query(`SELECT id, name, max_students, max_staff, price_inr, features FROM public.subscription_plans ORDER BY price_inr`);
+  /** Plans offered for new schools (public, not archived). */
+  async listPlans(): Promise<PlanRow[]> {
+    return query<PlanRow>(
+      `SELECT * FROM public.subscription_plans
+       WHERE  is_public AND NOT is_archived
+       ORDER  BY sort_order, price_inr`
+    );
+  }
+
+  // ── Plans (platform management) ───────────────────────────────────────────
+
+  async listAllPlans(): Promise<(PlanRow & { school_count: number })[]> {
+    return query(
+      `SELECT p.*, (SELECT count(*)::int FROM public.tenants t WHERE t.subscription_plan_id = p.id) AS school_count
+       FROM   public.subscription_plans p
+       ORDER  BY p.is_archived, p.sort_order, p.price_inr`
+    );
+  }
+
+  private static readonly PLAN_COLUMNS = [
+    'display_name', 'description', 'pricing_model', 'billing_period', 'price_inr', 'min_charge_inr',
+    'max_students', 'max_staff', 'includes_sis', 'includes_ams', 'ai_monthly_generations', 'sms_monthly',
+    'is_public', 'sort_order',
+  ] as const;
+
+  async createPlan(dto: Record<string, unknown>): Promise<PlanRow> {
+    const [taken] = await query(`SELECT 1 FROM public.subscription_plans WHERE name = $1`, [dto.name]);
+    if (taken) throw AppError.conflict(`Plan code "${dto.name}" already exists`);
+    const cols = ['name', ...PlatformAdminService.PLAN_COLUMNS.filter(c => dto[c] !== undefined)];
+    const [row] = await query<PlanRow>(
+      `INSERT INTO public.subscription_plans (${cols.join(', ')})
+       VALUES (${cols.map((_, i) => `$${i + 1}`).join(', ')}) RETURNING *`,
+      cols.map(c => dto[c])
+    );
+    return row;
+  }
+
+  async updatePlan(id: string, dto: Record<string, unknown>): Promise<PlanRow> {
+    const cols = PlatformAdminService.PLAN_COLUMNS.filter(c => dto[c] !== undefined);
+    const [current] = await query<PlanRow>(`SELECT * FROM public.subscription_plans WHERE id = $1`, [id]);
+    if (!current) throw AppError.notFound('Plan');
+    const sis = (dto.includes_sis ?? current.includes_sis) as boolean;
+    const ams = (dto.includes_ams ?? current.includes_ams) as boolean;
+    if (!sis && !ams) throw AppError.badRequest('A plan must include Taji One or Taji AMS');
+    const [row] = await query<PlanRow>(
+      `UPDATE public.subscription_plans
+       SET    ${cols.map((c, i) => `${c} = $${i + 1}`).join(', ')}, updated_at = now()
+       WHERE  id = $${cols.length + 1} RETURNING *`,
+      [...cols.map(c => dto[c]), id]
+    );
+    return row;
+  }
+
+  async setPlanArchived(id: string, archived: boolean): Promise<PlanRow> {
+    const [row] = await query<PlanRow>(
+      `UPDATE public.subscription_plans SET is_archived = $1, updated_at = now() WHERE id = $2 RETURNING *`,
+      [archived, id]
+    );
+    if (!row) throw AppError.notFound('Plan');
+    return row;
+  }
+
+  async deletePlan(id: string): Promise<void> {
+    const [{ n }] = await query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM public.tenants WHERE subscription_plan_id = $1`, [id]
+    );
+    if (n > 0) throw AppError.badRequest(`${n} school(s) are on this plan. Move them to another plan or archive it instead.`);
+    const rows = await query(`DELETE FROM public.subscription_plans WHERE id = $1 RETURNING id`, [id]);
+    if (!rows.length) throw AppError.notFound('Plan');
+  }
+
+  async updateSubscription(tenantId: string, dto: Record<string, unknown>): Promise<TenantRow> {
+    if (dto.plan_id) {
+      const [plan] = await query(`SELECT 1 FROM public.subscription_plans WHERE id = $1`, [dto.plan_id]);
+      if (!plan) throw AppError.badRequest('Selected plan not found');
+    }
+    const mapping: Record<string, string> = {
+      plan_id: 'subscription_plan_id', plan_status: 'plan_status', plan_started_on: 'plan_started_on',
+      renews_on: 'renews_on', trial_ends_on: 'trial_ends_on', discount_pct: 'discount_pct', billing_notes: 'billing_notes',
+    };
+    const keys = Object.keys(mapping).filter(k => dto[k] !== undefined);
+    const [row] = await query<TenantRow>(
+      `UPDATE public.tenants
+       SET    ${keys.map((k, i) => `${mapping[k]} = $${i + 1}`).join(', ')}, updated_at = now()
+       WHERE  id = $${keys.length + 1} RETURNING *`,
+      [...keys.map(k => dto[k]), tenantId]
+    );
+    if (!row) throw AppError.notFound('School');
+    return row;
   }
 
   async listSchoolAdmins(tenantId: string): Promise<{ id: string; email: string; first_name: string; last_name: string; role: string }[]> {
@@ -204,6 +287,146 @@ class PlatformAdminService {
        FROM staff
        WHERE role IN ('owner', 'principal') AND is_active = true
        ORDER BY role, first_name`
+    );
+  }
+
+  // ── School owners ─────────────────────────────────────────────────────────
+  // Owners are staff rows with role 'owner' in the school's schema (that is the
+  // login). public.tenants.owner_* is the school's primary contact; it follows
+  // the owner whose email it holds.
+
+  private async tenantById(tenantId: string): Promise<{ schema_name: string; owner_email: string }> {
+    const [tenant] = await query<{ schema_name: string; owner_email: string }>(
+      `SELECT schema_name, owner_email FROM public.tenants WHERE id = $1`, [tenantId]
+    );
+    if (!tenant) throw AppError.notFound('School');
+    return tenant;
+  }
+
+  async listOwners(tenantId: string): Promise<OwnerRow[]> {
+    const tenant = await this.tenantById(tenantId);
+    return tenantQuery<OwnerRow>(
+      tenant.schema_name,
+      `SELECT id, first_name, last_name, email, phone, is_active, created_at,
+              (lower(email) = lower($1)) AS is_primary
+       FROM   staff
+       WHERE  role = 'owner'
+       ORDER  BY is_active DESC, (lower(email) = lower($1)) DESC, first_name`,
+      [tenant.owner_email]
+    );
+  }
+
+  async createOwner(tenantId: string, dto: CreateOwnerDto): Promise<OwnerRow> {
+    const tenant = await this.tenantById(tenantId);
+    const email = dto.email.toLowerCase();
+    const [taken] = await tenantQuery<{ role: string }>(
+      tenant.schema_name, `SELECT role FROM staff WHERE lower(email) = $1`, [email]
+    );
+    if (taken) throw AppError.conflict(`${email} is already ${/^[aeiou]/.test(taken.role) ? 'an' : 'a'} ${taken.role.replace(/_/g, ' ')} account in this school`);
+
+    const hash = await bcrypt.hash(dto.password, 12);
+    const [row] = await tenantQuery<OwnerRow>(
+      tenant.schema_name,
+      `INSERT INTO staff (email, password_hash, role, first_name, last_name, phone, is_active)
+       VALUES ($1, $2, 'owner', $3, $4, $5, true)
+       RETURNING id, first_name, last_name, email, phone, is_active, created_at, false AS is_primary`,
+      [email, hash, dto.first_name, dto.last_name ?? '', dto.phone ?? null]
+    );
+    return row;
+  }
+
+  async updateOwner(tenantId: string, staffId: string, dto: UpdateOwnerDto): Promise<OwnerRow> {
+    const tenant = await this.tenantById(tenantId);
+    const [current] = await tenantQuery<OwnerRow>(
+      tenant.schema_name,
+      `SELECT id, first_name, last_name, email, phone, is_active FROM staff WHERE id = $1 AND role = 'owner'`,
+      [staffId]
+    );
+    if (!current) throw AppError.notFound('Owner');
+
+    const email = dto.email?.toLowerCase();
+    if (email && email !== current.email.toLowerCase()) {
+      const [taken] = await tenantQuery<{ role: string }>(
+        tenant.schema_name, `SELECT role FROM staff WHERE lower(email) = $1 AND id <> $2`, [email, staffId]
+      );
+      if (taken) throw AppError.conflict(`${email} is already ${/^[aeiou]/.test(taken.role) ? 'an' : 'a'} ${taken.role.replace(/_/g, ' ')} account in this school`);
+    }
+    if (dto.is_active === false && current.is_active) await this.assertAnotherActiveOwner(tenant.schema_name, staffId);
+
+    const fields: string[] = [];
+    const values: unknown[] = [];
+    const mapping: Record<string, unknown> = {
+      first_name: dto.first_name, last_name: dto.last_name, email, phone: dto.phone, is_active: dto.is_active,
+    };
+    for (const [col, val] of Object.entries(mapping)) {
+      if (val !== undefined) { values.push(val); fields.push(`${col} = $${values.length}`); }
+    }
+    values.push(staffId);
+    const [row] = await tenantQuery<OwnerRow>(
+      tenant.schema_name,
+      `UPDATE staff SET ${fields.join(', ')}, updated_at = now()
+       WHERE id = $${values.length} AND role = 'owner'
+       RETURNING id, first_name, last_name, email, phone, is_active, created_at`,
+      values
+    );
+
+    // Keep the school's primary contact in step with the owner it points at
+    const isPrimary = current.email.toLowerCase() === tenant.owner_email.toLowerCase();
+    if (isPrimary) {
+      if (row.is_active) {
+        await query(
+          `UPDATE public.tenants SET owner_name = $1, owner_email = $2, owner_phone = $3, updated_at = now() WHERE id = $4`,
+          [`${row.first_name} ${row.last_name}`.trim(), row.email, row.phone, tenantId]
+        );
+      } else {
+        await this.promoteNextPrimary(tenantId, tenant.schema_name);
+      }
+    }
+    return { ...row, is_primary: isPrimary && row.is_active };
+  }
+
+  /** Deletes an owner; owners referenced by school records are deactivated instead. */
+  async deleteOwner(tenantId: string, staffId: string): Promise<{ deleted: boolean; deactivated: boolean }> {
+    const tenant = await this.tenantById(tenantId);
+    const [current] = await tenantQuery<{ email: string; is_active: boolean }>(
+      tenant.schema_name, `SELECT email, is_active FROM staff WHERE id = $1 AND role = 'owner'`, [staffId]
+    );
+    if (!current) throw AppError.notFound('Owner');
+    if (current.is_active) await this.assertAnotherActiveOwner(tenant.schema_name, staffId);
+
+    let result = { deleted: true, deactivated: false };
+    try {
+      await tenantQuery(tenant.schema_name, `DELETE FROM staff WHERE id = $1 AND role = 'owner'`, [staffId]);
+    } catch (err: any) {
+      if (err?.code !== '23503') throw err;   // foreign_key_violation: has history
+      await tenantQuery(
+        tenant.schema_name, `UPDATE staff SET is_active = false, updated_at = now() WHERE id = $1`, [staffId]
+      );
+      result = { deleted: false, deactivated: true };
+    }
+    if (current.email.toLowerCase() === tenant.owner_email.toLowerCase()) {
+      await this.promoteNextPrimary(tenantId, tenant.schema_name);
+    }
+    return result;
+  }
+
+  private async assertAnotherActiveOwner(schema: string, staffId: string): Promise<void> {
+    const [{ n }] = await tenantQuery<{ n: number }>(
+      schema, `SELECT count(*)::int AS n FROM staff WHERE role = 'owner' AND is_active AND id <> $1`, [staffId]
+    );
+    if (n === 0) throw AppError.badRequest('A school must keep at least one active owner. Add another owner first.');
+  }
+
+  private async promoteNextPrimary(tenantId: string, schema: string): Promise<void> {
+    const [next] = await tenantQuery<{ first_name: string; last_name: string; email: string; phone: string | null }>(
+      schema,
+      `SELECT first_name, last_name, email, phone FROM staff
+       WHERE role = 'owner' AND is_active ORDER BY created_at LIMIT 1`
+    );
+    if (!next) return;
+    await query(
+      `UPDATE public.tenants SET owner_name = $1, owner_email = $2, owner_phone = $3, updated_at = now() WHERE id = $4`,
+      [`${next.first_name} ${next.last_name}`.trim(), next.email, next.phone, tenantId]
     );
   }
 

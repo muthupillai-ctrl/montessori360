@@ -253,6 +253,17 @@ import { environment } from '../../../../environments/environment';
         </header>
 
         <main class="page-area">
+          @if (planWarnings().length && !planBannerDismissed()) {
+            <div class="plan-banner" [class.critical]="planCritical()">
+              <span class="pb-icon">⚠</span>
+              <div class="pb-text">
+                <b>Your {{ planName() }} plan:</b>
+                @for (w of planWarnings(); track w.code) { <span>{{ w.message }}</span> }
+                <span class="pb-contact">Contact Taji support to change your plan.</span>
+              </div>
+              <button class="pb-close" title="Dismiss" (click)="dismissPlanBanner()">✕</button>
+            </div>
+          }
           <router-outlet />
         </main>
       </div>
@@ -532,6 +543,13 @@ import { environment } from '../../../../environments/environment';
     .tb-avatar:hover { opacity: .85; }
 
     .page-area { flex: 1; overflow-y: auto; padding: 22px 24px; }
+    .plan-banner { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 16px; padding: 10px 14px;
+      border-radius: 10px; background: #FFFBEB; border: 1px solid #FDE68A; color: #92400E; font-size: 13px;
+      .pb-icon { font-size: 15px; line-height: 1.3; flex: none; }
+      &.critical { background: #FEF2F2; border-color: #FECACA; color: #B91C1C; } }
+    .pb-text { flex: 1; display: flex; flex-wrap: wrap; gap: 4px 10px; }
+    .pb-contact { opacity: .8; }
+    .pb-close { background: none; border: none; cursor: pointer; color: inherit; font-size: 14px; padding: 0 2px; line-height: 1.3; }
   `],
 })
 export class ShellComponent implements OnInit {
@@ -551,6 +569,12 @@ export class ShellComponent implements OnInit {
   private isAdminRole = computed(() =>
     ['owner', 'principal', 'vice_principal'].includes(this.roles.role() ?? '')
   );
+
+  // Soft plan limits: owners/principals see warnings; nothing is blocked
+  planWarnings = signal<{ code: string; severity: string; message: string }[]>([]);
+  planName     = signal('');
+  planCritical = computed(() => this.planWarnings().some(w => w.severity === 'critical'));
+  planBannerDismissed = signal(false);
 
   // Bell badge = all sources including AI insights
   unseenCount = computed(() =>
@@ -587,6 +611,28 @@ export class ShellComponent implements OnInit {
 
     this.refresh();
     setInterval(() => this.refresh(), 120_000);
+    if (['owner', 'principal'].includes(this.roles.role() ?? '')) this.loadPlanWarnings();
+  }
+
+  private planBannerKey() { return `plan_banner_dismissed_${new Date().toISOString().slice(0, 10)}`; }
+
+  private loadPlanWarnings() {
+    this.planBannerDismissed.set(localStorage.getItem(this.planBannerKey()) === '1');
+    this.api.get<any>('/subscription').subscribe({
+      next: res => {
+        const d = res?.data;
+        this.planName.set(d?.plan?.display_name ?? d?.plan?.name ?? '');
+        // 'info' (e.g. renewal in 30 days) is for the platform team, not the school
+        this.planWarnings.set((d?.warnings ?? []).filter((w: { severity: string }) => w.severity !== 'info'));
+      },
+      error: () => {},
+    });
+  }
+
+  /** Hide the banner for the rest of today. */
+  dismissPlanBanner() {
+    try { localStorage.setItem(this.planBannerKey(), '1'); } catch { /* storage unavailable */ }
+    this.planBannerDismissed.set(true);
   }
 
   private refresh() {

@@ -21,9 +21,19 @@ export interface TenantRow {
   timezone: string;
   is_active: boolean;
   created_at: string;
+  subscription_plan_id: string | null;
+  plan_status: 'trial' | 'active' | 'overdue' | 'cancelled';
+  plan_started_on: string | null;
+  renews_on: string | null;
+  trial_ends_on: string | null;
+  discount_pct: string;
+  billing_notes: string | null;
   plan_name?: string;
   student_count?: number;
   staff_count?: number;
+  ai_generations_month?: number;
+  annual_estimate_inr?: number | null;
+  warnings?: { code: string; severity: string; message: string }[];
 }
 
 export interface CreateTenantDto {
@@ -50,6 +60,33 @@ export interface UpdateTenantDto {
   state?: string;
   address?: string;
   timezone?: string;
+}
+
+export interface OwnerRow {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string | null;
+  is_active: boolean;
+  is_primary: boolean;
+  created_at: string;
+}
+
+export interface CreateOwnerDto {
+  first_name: string;
+  last_name?: string;
+  email: string;
+  phone?: string;
+  password: string;
+}
+
+export interface UpdateOwnerDto {
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  phone?: string | null;
+  is_active?: boolean;
 }
 
 export interface PlatformJwtPayload {

@@ -217,6 +217,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/platform/login/platform-login.component').then(m => m.PlatformLoginComponent),
   },
   {
+    path: 'platform/pricing-sheet',
+    loadComponent: () => import('./features/platform/pricing-sheet/platform-pricing-sheet.component').then(m => m.PlatformPricingSheetComponent),
+    canActivate: [platformAuthGuard],
+  },
+  {
     path: 'platform',
     loadComponent: () => import('./features/platform/shell/platform-shell.component').then(m => m.PlatformShellComponent),
     canActivate: [platformAuthGuard],
@@ -225,6 +230,10 @@ export const routes: Routes = [
       {
         path: 'schools',
         loadComponent: () => import('./features/platform/schools/platform-schools.component').then(m => m.PlatformSchoolsComponent),
+      },
+      {
+        path: 'plans',
+        loadComponent: () => import('./features/platform/plans/platform-plans.component').then(m => m.PlatformPlansComponent),
       },
       {
         path: 'ai-usage',

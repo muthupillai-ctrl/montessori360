@@ -483,3 +483,8 @@ body {
 .sm-blue   { background: #2563EB; }
 .sm-green  { background: #059669; }
 .sm-purple { background: #7C3AED; }
+
+// Printable pages (e.g. the platform pricing sheet) print on white, not the app background
+@media print {
+  html, body { background: #fff !important; }
+}

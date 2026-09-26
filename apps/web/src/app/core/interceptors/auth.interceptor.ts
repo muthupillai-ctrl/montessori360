@@ -8,6 +8,9 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const auth   = inject(AuthService);
   const router = inject(Router);
 
+  // Platform-portal calls carry their own platform token; never swap in the school session
+  if (req.headers.has('Authorization') || req.url.includes('/platform/')) return next(req);
+
   const token = auth.token();
   const authReq = token
     ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } })
