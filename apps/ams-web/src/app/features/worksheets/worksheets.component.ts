@@ -58,7 +58,7 @@ const TOPICS: Record<string, Record<string, string[]>> = {
 };
 
 const LEVEL_META: Record<WorksheetLevel, { label: string; bg: string; color: string }> = {
-  montessori:  { label: 'Montessori', bg: '#ede9fe', color: '#5b21b6' },
+  montessori:  { label: 'Pre-primary', bg: '#ede9fe', color: '#5b21b6' },
   primary:     { label: 'Primary',    bg: '#d1fae5', color: '#065f46' },
   high_school: { label: 'High School', bg: '#fef3c7', color: '#92400e' },
 };
@@ -206,7 +206,7 @@ const LEVEL_META: Record<WorksheetLevel, { label: string; bg: string; color: str
                 <select class="field-input" formControlName="level"
                         (change)="onGenLevelChange($any($event.target).value)">
                   <option value="">Select level</option>
-                  <option value="montessori">Montessori</option>
+                  <option value="montessori">Pre-primary / Montessori</option>
                   <option value="primary">Primary (Gr 1–5)</option>
                   <option value="high_school">High School (Gr 6–12)</option>
                 </select>
@@ -367,7 +367,7 @@ const LEVEL_META: Record<WorksheetLevel, { label: string; bg: string; color: str
               <select class="field-input" [value]="uploadLevel()"
                       (change)="uploadLevel.set($any($event.target).value)">
                 <option value="">Auto-detect from grade</option>
-                <option value="montessori">Montessori</option>
+                <option value="montessori">Pre-primary / Montessori</option>
                 <option value="primary">Primary (Grade 1–5)</option>
                 <option value="high_school">High School (Grade 6–12)</option>
               </select>
@@ -431,7 +431,7 @@ const LEVEL_META: Record<WorksheetLevel, { label: string; bg: string; color: str
               <label class="field-label">School Level</label>
               <select class="field-input" formControlName="level">
                 <option value="">Auto-detect from grade</option>
-                <option value="montessori">Montessori</option>
+                <option value="montessori">Pre-primary / Montessori</option>
                 <option value="primary">Primary (Grade 1–5)</option>
                 <option value="high_school">High School (Grade 6–12)</option>
               </select>

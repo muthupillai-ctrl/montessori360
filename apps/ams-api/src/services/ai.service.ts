@@ -61,8 +61,15 @@ async function streamText(prompt: string, feature: string, tenantSchema?: string
     .join('');
 }
 
+// Montessori wording only when the grade names a Montessori class; everything else
+// (including regular LKG/UKG, which share the 'montessori' level value) gets a general teacher voice.
+function isMontessori(gradeLevel: string): boolean {
+  return /montessori|casa/i.test(gradeLevel);
+}
+
 export async function generateWorksheetHTML(input: GenerateWorksheetInput): Promise<string> {
-  const prompt = `You are an experienced Montessori educator. Create a complete, print-ready worksheet in clean HTML.
+  const montessori = isMontessori(input.grade_level);
+  const prompt = `You are an experienced ${montessori ? 'Montessori educator' : 'teacher'}. Create a complete, print-ready worksheet in clean HTML.
 
 Subject: ${input.subject}
 Grade Level: ${input.grade_level}
@@ -86,7 +93,8 @@ Output the HTML document starting with <div class="worksheet"> and ending with <
 }
 
 export async function generateLessonPlanHTML(input: GenerateLessonPlanInput): Promise<string> {
-  const prompt = `You are an experienced Montessori teacher. Create a detailed, structured lesson plan in clean HTML.
+  const montessori = isMontessori(input.grade_level);
+  const prompt = `You are an experienced ${montessori ? 'Montessori teacher' : 'teacher'}. Create a detailed, structured lesson plan in clean HTML.
 
 Subject: ${input.subject}
 Grade Level: ${input.grade_level}
@@ -96,10 +104,11 @@ ${input.learning_objectives ? `Learning Objectives: ${input.learning_objectives}
 
 Requirements:
 - Output ONLY valid HTML (no markdown, no code blocks)
-- Structure: Overview → Learning Objectives → Materials Needed → Introduction → Main Activity → Practice / Work Cycle → Closure → Assessment → Extensions
+- Structure: Overview → Learning Objectives → Materials Needed → Introduction → Main Activity → ${montessori ? 'Practice / Work Cycle' : 'Guided & Independent Practice'} → Closure → Assessment → Extensions
 - Use h2 for each section, ol/ul for lists, p for prose
-- Incorporate Montessori principles: hands-on learning, three-period lessons, freedom of choice, prepared environment
-- Include time allocations for each phase
+${montessori
+  ? '- Incorporate Montessori principles: hands-on learning, three-period lessons, freedom of choice, prepared environment\n'
+  : '- Use active, age-appropriate teaching: hands-on activities, checks for understanding and differentiation for mixed abilities\n'}- Include time allocations for each phase
 
 Output the HTML starting with <div class="lesson-plan"> and ending with </div>.`;
 

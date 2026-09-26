@@ -141,7 +141,7 @@ interface Plan {
           <div class="row-2">
             <div class="field">
               <label>School Name <span class="req">*</span></label>
-              <input formControlName="name" placeholder="Green Valley Montessori" />
+              <input formControlName="name" placeholder="Green Valley School" />
             </div>
             <div class="field">
               <label>Code <span class="req">*</span></label>

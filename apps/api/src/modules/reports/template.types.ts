@@ -67,7 +67,7 @@ export const DEFAULT_SECTIONS: SectionConfig[] = [
 
 export const DEFAULT_TEMPLATE: Omit<ReportTemplateRow, 'id' | 'created_by' | 'created_at' | 'updated_at'> = {
   name:             'Default Template',
-  description:      'Standard Montessori360 progress card',
+  description:      'Standard Taji One progress card',
   logo_url:         null,
   primary_colour:   '#1F3864',
   secondary_colour: '#2E5AA8',

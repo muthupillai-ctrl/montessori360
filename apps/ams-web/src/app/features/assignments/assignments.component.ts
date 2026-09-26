@@ -37,7 +37,7 @@ const TYPE_BADGE: Record<ContentType, { bg: string; color: string }> = {
 };
 
 const LEVEL_LABEL: Record<ClassLevel, string> = {
-  montessori:  'Montessori',
+  montessori:  'Pre-primary / Montessori',
   primary:     'Primary',
   high_school: 'High School',
 };

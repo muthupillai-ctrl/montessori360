@@ -128,7 +128,7 @@ interface LessonPlanRow {
           <form [formGroup]="genForm" (ngSubmit)="generate()" class="panel-body">
             <div class="ai-banner">
               <span>✨</span>
-              <span>Describe what you need and Claude will create a detailed Montessori lesson plan.</span>
+              <span>Describe what you need and Claude will create a detailed lesson plan.</span>
             </div>
 
             <div class="field-group">

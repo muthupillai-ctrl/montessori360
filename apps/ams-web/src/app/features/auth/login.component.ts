@@ -22,7 +22,7 @@ import { AuthService } from '../../core/services/auth.service';
         </div>
 
         <div class="hero-text">
-          <h1>Academic tools built<br>for Montessori.</h1>
+          <h1>Academic tools built<br>for every classroom.</h1>
           <p>Worksheets, progress tracking, report cards, and question banks — all in one place.</p>
         </div>
 
@@ -132,7 +132,7 @@ import { AuthService } from '../../core/services/auth.service';
           </form>
         </div>
 
-        <div class="right-footer">© 2026 Montessori360 AMS. All rights reserved.</div>
+        <div class="right-footer">© 2026 Taji AMS by AhamSys. All rights reserved.</div>
       </div>
 
     </div>

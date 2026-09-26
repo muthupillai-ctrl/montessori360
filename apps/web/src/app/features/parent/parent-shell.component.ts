@@ -26,7 +26,7 @@ const TABS = [
         <div class="ps-header-top">
           <div class="ps-brand">
             <div class="ps-brand-logo">M</div>
-            <span class="ps-brand-name">Montessori360</span>
+            <span class="ps-brand-name">Taji One</span>
           </div>
           <div class="ps-header-actions">
             @if (unreadMessages() > 0) {

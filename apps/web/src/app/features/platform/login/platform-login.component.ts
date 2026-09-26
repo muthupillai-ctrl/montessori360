@@ -16,7 +16,7 @@ import { PlatformAuthService } from '../../../core/services/platform-auth.servic
         <div class="pl-brand">
           <div class="pl-logo">M</div>
           <div>
-            <div class="pl-brand-name">Montessori360</div>
+            <div class="pl-brand-name">Taji One</div>
             <div class="pl-brand-sub">Platform Administration</div>
           </div>
         </div>

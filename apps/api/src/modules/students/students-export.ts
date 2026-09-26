@@ -52,7 +52,7 @@ export async function generateStudentsXlsx(
   label: string,
 ): Promise<void> {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'Montessori360';
+  wb.creator = 'Taji One';
   wb.created = new Date();
 
   const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
@@ -200,7 +200,7 @@ function pdfHeader(doc: PDFKit.PDFDocument, title: string, label: string) {
   // Blue banner
   doc.rect(0, 0, W, 52).fill(BLUE);
   doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(14)
-    .text('Montessori360', MARGIN, 12, { lineBreak: false });
+    .text('Taji One', MARGIN, 12, { lineBreak: false });
   doc.fillColor('#94A3B8').font('Helvetica').fontSize(9)
     .text(`  ·  ${title}`, MARGIN + 115, 14, { lineBreak: false });
   doc.fillColor('#CBD5E1').fontSize(8)

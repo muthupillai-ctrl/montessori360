@@ -21,7 +21,7 @@ function passwordsMatch(control: AbstractControl): ValidationErrors | null {
 
         <div class="brand">
           <div class="logo">M</div>
-          <div class="brand-name">Montessori360</div>
+          <div class="brand-name">Taji One</div>
         </div>
 
         @if (!token()) {

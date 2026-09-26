@@ -116,7 +116,7 @@ export async function deleteActivity(schema: string, id: string): Promise<boolea
 export async function getStudentProgress(schema: string, studentId: string): Promise<ProgressRow[]> {
   return tenantQuery<ProgressRow>(schema, `
     SELECT
-      COALESCE(p.id, gen_random_uuid()::text)    AS id,
+      COALESCE(p.id, gen_random_uuid())          AS id,
       $1::uuid                                   AS student_id,
       a.id                                       AS activity_id,
       a.name                                     AS activity_name,
@@ -154,7 +154,7 @@ export async function upsertProgress(
   };
   const tsCol = timestampField[dto.status];
   const tsClause = tsCol
-    ? `, ${tsCol} = COALESCE(${tsCol}, now())`
+    ? `, ${tsCol} = COALESCE(child_activity_progress.${tsCol}, now())`
     : '';
 
   const rows = await tenantQuery<ProgressRow>(schema, `

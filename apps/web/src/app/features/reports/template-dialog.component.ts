@@ -85,7 +85,7 @@ const ALL_SECTIONS = [
                 {{ form.value.name || 'Progress Report' }}
               </div>
               <div class="ps-sub" [style.color]="(form.value.accent_colour || '#D6E4F0') + 'AA'">
-                Montessori360 · {{ form.value.font || 'helvetica' }}
+                Taji One · {{ form.value.font || 'helvetica' }}
               </div>
               <div class="ps-bar" [style.background]="form.value.secondary_colour || '#2E5AA8'"></div>
             </div>

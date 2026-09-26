@@ -358,7 +358,7 @@ export class FeeReceiptDialogComponent implements OnInit {
   inv    = signal<FeeInvoice>(this.raw);
   get invoice() { return this.inv(); }
 
-  schoolName    = signal('Montessori School');
+  schoolName    = signal('School');
   schoolInitials = signal('MS');
 
   lineItems = signal<{ name: string; amount: number }[]>([]);
@@ -378,7 +378,7 @@ export class FeeReceiptDialogComponent implements OnInit {
 
     // Use tenant code from auth service as school name
     const code = this.auth.user()?.tenantId ?? '';
-    const name = code ? code.charAt(0).toUpperCase() + code.slice(1) + ' School' : 'Montessori School';
+    const name = code ? code.charAt(0).toUpperCase() + code.slice(1) + ' School' : 'School';
     this.schoolName.set(name);
     this.schoolInitials.set(
       name.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()

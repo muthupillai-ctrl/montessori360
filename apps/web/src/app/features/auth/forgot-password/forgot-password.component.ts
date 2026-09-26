@@ -15,7 +15,7 @@ import { ApiService } from '../../../core/services/api.service';
 
         <div class="brand">
           <div class="logo">M</div>
-          <div class="brand-name">Montessori360</div>
+          <div class="brand-name">Taji One</div>
         </div>
 
         @if (!sent()) {

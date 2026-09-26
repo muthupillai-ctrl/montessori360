@@ -25,7 +25,7 @@ import { environment } from '../../../../environments/environment';
           <div class="sb-logo">{{ schoolInitial() }}</div>
           <div>
             <div class="sb-name">{{ auth.user()?.tenantName ?? 'School Portal' }}</div>
-            <div class="sb-sub">Montessori360</div>
+            <div class="sb-sub">Taji One</div>
           </div>
         </div>
 

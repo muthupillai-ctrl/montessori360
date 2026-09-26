@@ -24,14 +24,14 @@ import { AuthService } from '../../../core/services/auth.service';
         <div class="brand">
           <div class="brand-icon">M</div>
           <div class="brand-text">
-            <div class="brand-name">Montessori360</div>
+            <div class="brand-name">Taji One</div>
             <div class="brand-tagline">School Management Platform</div>
           </div>
         </div>
 
         <div class="hero-text">
           <h1>Manage your school<br>with confidence.</h1>
-          <p>Everything you need to run a modern Montessori school — students, attendance, fees, staff, and more.</p>
+          <p>Everything you need to run a modern school — students, attendance, fees, staff, and more.</p>
         </div>
 
         <div class="feature-list">
@@ -152,7 +152,7 @@ import { AuthService } from '../../../core/services/auth.service';
 
         </div>
 
-        <div class="right-footer">© 2026 Montessori360. All rights reserved.</div>
+        <div class="right-footer">© 2026 Taji One by AhamSys. All rights reserved.</div>
       </div>
 
     </div>

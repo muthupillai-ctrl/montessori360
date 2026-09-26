@@ -23,7 +23,7 @@ async function bootstrap() {
     const app = createApp();
 
     app.listen(PORT, () => {
-      logger.info(`🚀 Montessori360 API running on port ${PORT}`);
+      logger.info(`🚀 Taji One API running on port ${PORT}`);
       logger.info(`📖 Environment: ${process.env.NODE_ENV ?? 'development'}`);
       startInsightsJob();
     });

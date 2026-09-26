@@ -13,7 +13,7 @@ import { ApiService } from '../../core/services/api.service';
     <div class="page">
       <div class="card">
         <div class="logo">M</div>
-        <div class="title">Montessori360</div>
+        <div class="title">Taji One</div>
         <div class="subtitle">Parent Portal</div>
 
         @if (done()) {

@@ -33,7 +33,7 @@ const STATUS_TITLE: Record<string, string> = {
 <div class="page-header">
   <div>
     <h1>Activity Progress</h1>
-    <p class="page-sub">Track each child's Montessori curriculum progress</p>
+    <p class="page-sub">Track each child's curriculum progress</p>
   </div>
 </div>
 

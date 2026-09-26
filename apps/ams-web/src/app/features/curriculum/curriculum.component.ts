@@ -25,7 +25,7 @@ const LEVEL_LABELS: Record<string, string> = {
 <div class="page-header">
   <div>
     <h1>Curriculum</h1>
-    <p class="page-sub">Manage Montessori curriculum areas and activities</p>
+    <p class="page-sub">Manage curriculum areas and activities</p>
   </div>
   <div class="header-actions">
     @if (!seeded()) {

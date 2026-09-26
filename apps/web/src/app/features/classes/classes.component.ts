@@ -230,7 +230,7 @@ interface StaffMember {
                   <label class="fl">School Level</label>
                   <select class="fi" formControlName="level">
                     <option value="">— Not set —</option>
-                    <option value="montessori">Montessori</option>
+                    <option value="montessori">Pre-primary / Montessori</option>
                     <option value="primary">Primary</option>
                     <option value="high_school">High School</option>
                   </select>

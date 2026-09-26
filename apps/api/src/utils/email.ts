@@ -32,14 +32,14 @@ export async function sendPasswordResetEmail(to: string, resetLink: string): Pro
   }
 
   await transport.sendMail({
-    from: `"Montessori360" <${from}>`,
+    from: `"Taji One" <${from}>`,
     to,
-    subject: 'Reset your Montessori360 password',
+    subject: 'Reset your Taji One password',
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
         <h2 style="margin:0 0 8px;color:#1e293b">Reset your password</h2>
         <p style="color:#475569;margin:0 0 24px;line-height:1.6">
-          We received a request to reset your Montessori360 password.
+          We received a request to reset your Taji One password.
           Click the button below to set a new password. This link expires in <strong>1 hour</strong>.
         </p>
         <a href="${resetLink}"
@@ -53,7 +53,7 @@ export async function sendPasswordResetEmail(to: string, resetLink: string): Pro
         </p>
       </div>
     `,
-    text: `Reset your Montessori360 password:\n\n${resetLink}\n\nThis link expires in 1 hour. If you didn't request this, ignore this email.`,
+    text: `Reset your Taji One password:\n\n${resetLink}\n\nThis link expires in 1 hour. If you didn't request this, ignore this email.`,
   });
 
   logger.info(`[email] Password reset sent to ${to} — link: ${resetLink}`);
@@ -69,14 +69,14 @@ export async function sendParentInviteEmail(to: string, inviteLink: string, pare
   const transport = createTransport();
 
   await transport.sendMail({
-    from: `"Montessori360" <${from}>`,
+    from: `"Taji One" <${from}>`,
     to,
     subject: `You've been invited to ${schoolName}'s parent portal`,
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
         <h2 style="margin:0 0 8px;color:#1e293b">Welcome, ${parentName}!</h2>
         <p style="color:#475569;margin:0 0 24px;line-height:1.6">
-          ${schoolName} has invited you to their parent portal on Montessori360.
+          ${schoolName} has invited you to their parent portal on Taji One.
           Click the button below to set your password and get started.
           This link expires in <strong>72 hours</strong>.
         </p>

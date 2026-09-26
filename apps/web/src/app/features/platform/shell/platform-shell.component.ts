@@ -14,7 +14,7 @@ import { PlatformAuthService } from '../../../core/services/platform-auth.servic
         <div class="ps-brand">
           <div class="ps-logo">M</div>
           <div>
-            <div class="ps-brand-name">Montessori360</div>
+            <div class="ps-brand-name">Taji One</div>
             <div class="ps-brand-sub">Platform Admin</div>
           </div>
         </div>

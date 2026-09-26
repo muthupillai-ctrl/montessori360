@@ -10,7 +10,7 @@ import { ParentStateService } from './parent-state.service';
   imports: [MatIconModule, MatProgressSpinnerModule],
   template: `
     <div class="page">
-      <div class="page-title">Montessori Progress</div>
+      <div class="page-title">Learning Progress</div>
 
       @if (loading()) {
         <div class="loading"><mat-progress-spinner diameter="28" mode="indeterminate"/></div>

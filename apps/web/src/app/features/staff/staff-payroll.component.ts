@@ -170,7 +170,7 @@ const ROLE_LABELS: Record<string, string> = {
             <!-- Slip header -->
             <div class="slip-header">
               <div class="slip-school">
-                <div class="slip-school-name">Montessori360</div>
+                <div class="slip-school-name">Taji One</div>
                 <div class="slip-school-sub">Payslip for {{ monthLabel() }}</div>
               </div>
               <div class="slip-emp">
