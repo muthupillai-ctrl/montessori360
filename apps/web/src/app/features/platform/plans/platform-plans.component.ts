@@ -22,6 +22,7 @@ export interface Plan {
   includes_ams: boolean;
   ai_monthly_generations: number | null;
   sms_monthly: number | null;
+  features?: Record<string, boolean>;
   is_public: boolean;
   is_archived: boolean;
   sort_order: number;
@@ -174,6 +175,16 @@ export function planPriceLabel(p: Plan): string {
           <label class="check"><input type="checkbox" formControlName="includes_sis" /> Taji One (school management)</label>
           <label class="check"><input type="checkbox" formControlName="includes_ams" /> Taji AMS (academics)</label>
 
+          @if (form.value.includes_sis) {
+            <div class="section-label">Taji One modules <span class="hint">(students, attendance, fees, parent portal and journal are always included)</span></div>
+            <div class="row-2">
+              <label class="check"><input type="checkbox" formControlName="f_staff_payroll" /> Staff, leave &amp; payroll</label>
+              <label class="check"><input type="checkbox" formControlName="f_transport" /> Transport</label>
+              <label class="check"><input type="checkbox" formControlName="f_timetable" /> Timetable</label>
+              <label class="check"><input type="checkbox" formControlName="f_ai_insights" /> AI insights</label>
+            </div>
+          }
+
           <div class="section-label">Limits & allowances <span class="hint">(leave blank for unlimited)</span></div>
           <div class="row-2">
             <div class="field"><label>Max students</label><input formControlName="max_students" type="number" min="1" /></div>
@@ -323,6 +334,10 @@ export class PlatformPlansComponent implements OnInit {
     includes_ams:   [false],
     ai_monthly_generations: [null as number | null, [Validators.min(0)]],
     sms_monthly:    [null as number | null, [Validators.min(0)]],
+    f_staff_payroll: [true],
+    f_transport:     [true],
+    f_timetable:     [true],
+    f_ai_insights:   [true],
     is_public:      [true],
     sort_order:     [0 as number | null],
   });
@@ -357,6 +372,7 @@ export class PlatformPlansComponent implements OnInit {
       name: '', display_name: '', description: '', pricing_model: 'per_student', billing_period: 'yearly',
       price_inr: null, min_charge_inr: 0, max_students: null, max_staff: null, includes_sis: true, includes_ams: false,
       ai_monthly_generations: null, sms_monthly: null, is_public: true, sort_order: 0,
+      f_staff_payroll: true, f_transport: true, f_timetable: true, f_ai_insights: true,
     });
     this.form.controls.name.enable();
     this.formError.set('');
@@ -372,6 +388,9 @@ export class PlatformPlansComponent implements OnInit {
       max_students: p.max_students, max_staff: p.max_staff, includes_sis: p.includes_sis, includes_ams: p.includes_ams,
       ai_monthly_generations: p.ai_monthly_generations, sms_monthly: p.sms_monthly,
       is_public: p.is_public, sort_order: p.sort_order,
+      // a module is included unless the plan explicitly turns it off
+      f_staff_payroll: p.features?.['staff_payroll'] !== false, f_transport: p.features?.['transport'] !== false,
+      f_timetable: p.features?.['timetable'] !== false, f_ai_insights: p.features?.['ai_insights'] !== false,
     });
     this.form.controls.name.disable();
     this.formError.set('');
@@ -393,6 +412,10 @@ export class PlatformPlansComponent implements OnInit {
       includes_sis: !!v.includes_sis, includes_ams: !!v.includes_ams,
       ai_monthly_generations: blank(v.ai_monthly_generations), sms_monthly: blank(v.sms_monthly),
       is_public: !!v.is_public, sort_order: Number(v.sort_order ?? 0),
+      features: {
+        staff_payroll: !!v.f_staff_payroll, transport: !!v.f_transport,
+        timetable: !!v.f_timetable, ai_insights: !!v.f_ai_insights,
+      },
     };
     const editing = this.editing();
     const req = editing

@@ -47,8 +47,8 @@ export interface Warning {
 }
 
 export interface SubscriptionSummary {
-  plan: Pick<PlanRow, 'id' | 'name' | 'display_name' | 'pricing_model' | 'billing_period' | 'max_students' | 'max_staff'
-    | 'includes_sis' | 'includes_ams' | 'ai_monthly_generations' | 'sms_monthly'> | null;
+  plan: Pick<PlanRow, 'id' | 'name' | 'display_name' | 'description' | 'pricing_model' | 'billing_period' | 'max_students' | 'max_staff'
+    | 'includes_sis' | 'includes_ams' | 'ai_monthly_generations' | 'sms_monthly' | 'features'> | null;
   subscription: SubscriptionFields;
   usage: Usage;
   annual_estimate_inr: number | null;
@@ -142,7 +142,8 @@ export async function summaryForTenant(tenantId: string): Promise<SubscriptionSu
   };
   return {
     plan: plan ? {
-      id: plan.id, name: plan.name, display_name: plan.display_name, pricing_model: plan.pricing_model,
+      id: plan.id, name: plan.name, display_name: plan.display_name, description: plan.description,
+      features: plan.features ?? {}, pricing_model: plan.pricing_model,
       billing_period: plan.billing_period, max_students: plan.max_students, max_staff: plan.max_staff,
       includes_sis: plan.includes_sis, includes_ams: plan.includes_ams,
       ai_monthly_generations: plan.ai_monthly_generations, sms_monthly: plan.sms_monthly,

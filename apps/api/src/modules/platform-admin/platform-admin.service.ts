@@ -206,7 +206,7 @@ class PlatformAdminService {
   private static readonly PLAN_COLUMNS = [
     'display_name', 'description', 'pricing_model', 'billing_period', 'price_inr', 'min_charge_inr',
     'max_students', 'max_staff', 'includes_sis', 'includes_ams', 'ai_monthly_generations', 'sms_monthly',
-    'is_public', 'sort_order',
+    'features', 'is_public', 'sort_order',
   ] as const;
 
   async createPlan(dto: Record<string, unknown>): Promise<PlanRow> {

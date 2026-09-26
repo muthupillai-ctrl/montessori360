@@ -259,7 +259,7 @@ import { environment } from '../../../../environments/environment';
               <div class="pb-text">
                 <b>Your {{ planName() }} plan:</b>
                 @for (w of planWarnings(); track w.code) { <span>{{ w.message }}</span> }
-                <span class="pb-contact">Contact Taji support to change your plan.</span>
+                <a class="pb-contact" (click)="router.navigate(['/plan'])">View plan &amp; usage →</a>
               </div>
               <button class="pb-close" title="Dismiss" (click)="dismissPlanBanner()">✕</button>
             </div>
@@ -548,7 +548,7 @@ import { environment } from '../../../../environments/environment';
       .pb-icon { font-size: 15px; line-height: 1.3; flex: none; }
       &.critical { background: #FEF2F2; border-color: #FECACA; color: #B91C1C; } }
     .pb-text { flex: 1; display: flex; flex-wrap: wrap; gap: 4px 10px; }
-    .pb-contact { opacity: .8; }
+    .pb-contact { color: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
     .pb-close { background: none; border: none; cursor: pointer; color: inherit; font-size: 14px; padding: 0 2px; line-height: 1.3; }
   `],
 })

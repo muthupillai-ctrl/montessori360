@@ -65,6 +65,9 @@ const planFields = {
   includes_ams:   z.boolean(),
   ai_monthly_generations: z.coerce.number().int().min(0).max(1_000_000).nullable().optional(),
   sms_monthly:    z.coerce.number().int().min(0).max(10_000_000).nullable().optional(),
+  features:       z.object({
+    staff_payroll: z.boolean(), transport: z.boolean(), timetable: z.boolean(), ai_insights: z.boolean(),
+  }).partial().optional(),
   is_public:      z.boolean().optional(),
   sort_order:     z.coerce.number().int().min(0).max(10_000).optional(),
 };

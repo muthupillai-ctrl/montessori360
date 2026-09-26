@@ -208,6 +208,14 @@ export const routes: Routes = [
         canActivate: [roleGuard],
         data: { roles: ADMIN },
       },
+
+      // School's own Taji plan and usage — admin only
+      {
+        path: 'plan',
+        loadComponent: () => import('./features/plan/plan-usage.component').then(m => m.PlanUsageComponent),
+        canActivate: [roleGuard],
+        data: { roles: ADMIN },
+      },
     ],
   },
 

@@ -83,6 +83,12 @@ function principalNav(): NavGroup[] {
         { label: 'Integration',  icon: 'api',     route: '/integration' },
       ],
     },
+    {
+      label: 'Account',
+      items: [
+        { label: 'Plan & usage', icon: 'receipt', route: '/plan' },
+      ],
+    },
   ];
 }
 
