@@ -21,8 +21,8 @@ SERVER="${SERVER:-pwms-server}"
 REMOTE_BASE="${REMOTE_BASE:-/data/apps/montessori360}"
 REVERSE_PROXY_DIR="${REVERSE_PROXY_DIR:-/data/reverse-proxy}"
 REVERSE_PROXY_CONTAINER="${REVERSE_PROXY_CONTAINER:-reverse-proxy}"
-SIS_WEB_HOSTS="${SIS_WEB_HOSTS:-pvns.ahamsys.com}"
-AMS_WEB_HOSTS="${AMS_WEB_HOSTS:-school-ams.ahamsys.com}"
+SIS_WEB_HOSTS="${SIS_WEB_HOSTS:-tajione.ahamsys.com}"
+AMS_WEB_HOSTS="${AMS_WEB_HOSTS:-tajiams.ahamsys.com}"
 
 # Reuse one SSH connection across all ssh/rsync calls.
 SSH_OPTS=(-o ControlMaster=auto

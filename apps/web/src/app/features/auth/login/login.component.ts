@@ -443,7 +443,7 @@ export class LoginComponent implements OnInit {
     const parts = hostname.split('.');
     if (parts.length < 3) return '';
     const sub = parts[0];
-    if (['www', 'app', 'platform', 'api'].includes(sub)) return '';
+    if (['www', 'app', 'platform', 'api', 'tajione'].includes(sub)) return '';
     return sub;
   }
 
