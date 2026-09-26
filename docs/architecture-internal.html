@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Taji Internal Architecture | Ahamsys</title>
+<meta name="description" content="Taji One (SIS) and Taji AMS: internal scope, system and data-model diagrams, multi-tenancy, SIS–AMS single sign-on, AI features, security model, API surface and deployment.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://www.ahamsys.com/assets/style.css?v=3">
+</head>
+<body class="theme-m360">
+<header class="nav">
+  <div class="wrap">
+    <a class="logo" href="https://www.ahamsys.com/">Aham<span>sys</span></a>
+    <button class="menu-btn" aria-label="Menu" aria-expanded="false">Menu</button>
+    <nav class="nav-links">
+      <a href="https://www.ahamsys.com/taji/">Taji</a>
+      <a href="https://www.ahamsys.com/taji/brochure.html">Brochure</a>
+      <a href="https://www.ahamsys.com/#products">Products</a>
+      <a class="btn btn-primary btn-sm" href="https://www.ahamsys.com/#contact">Contact</a>
+    </nav>
+  </div>
+</header>
+<div class="wrap doc-page">
+  <aside class="toc"><div class="eyebrow">On this page</div>
+<ul>
+<li><a href="#scope">1. Purpose and scope</a><ul>
+<li><a href="#in-scope">In scope (built)</a></li>
+<li><a href="#out-of-scope">Out of scope / not built</a></li>
+</ul></li>
+<li><a href="#context">2. System context</a></li>
+<li><a href="#structure">3. Solution structure</a></li>
+<li><a href="#tenancy">4. Multi-tenancy and request pipeline</a></li>
+<li><a href="#data-model">5. Data model</a></li>
+<li><a href="#integration">6. SIS–AMS integration</a><ul>
+<li><a href="#sso">6.1 Single sign-on</a></li>
+<li><a href="#sis-data">6.2 Reading SIS data</a></li>
+<li><a href="#api-keys">6.3 External API keys</a></li>
+</ul></li>
+<li><a href="#ai">7. AI features</a></li>
+<li><a href="#flows">8. Key workflows</a></li>
+<li><a href="#security">9. Security model</a></li>
+<li><a href="#api">10. API surface</a></li>
+<li><a href="#frontend">11. Frontend architecture</a></li>
+<li><a href="#deployment">12. Deployment and operations</a></li>
+<li><a href="#roadmap">13. Roadmap and open decisions</a></li>
+</ul>
+</aside>
+  <main class="prose">
+<h1>Taji — Internal Scope &amp; Technical Architecture</h1>
+<p><strong>Audience:</strong> internal engineers. The public version is at
+<a href="https://www.ahamsys.com/taji/architecture.html">ahamsys.com/taji/architecture.html</a>.
+<strong>Status:</strong> reflects the code as of 2026-09-26. Covers both products:
+<strong>Taji One</strong> (the Student Information System, called <strong>SIS</strong> below) and
+<strong>Taji AMS</strong> (the Academic Management System, <strong>AMS</strong> below). Code, packages and
+containers still use the earlier internal name <code>montessori360</code>.</p>
+
+<h2 id="scope">1. Purpose and scope</h2>
+<p>Taji is a multi-tenant SaaS platform for schools, preschools and
+early-learning institutions. The SIS runs school administration and the parent
+relationship; the AMS runs curriculum, child progress and teaching material. They are
+separate applications with separate databases, joined by single sign-on and a
+server-to-server API, so a school can adopt one or both.</p>
+
+<h3 id="in-scope">In scope (built)</h3>
+<table>
+<thead><tr><th>Product</th><th>Area</th><th>Capability</th></tr></thead>
+<tbody>
+<tr><td>Platform</td><td>Tenancy</td><td>Schema-per-school PostgreSQL, school code or subdomain login, platform-admin console for schools, plans and AI usage</td></tr>
+<tr><td>Platform</td><td>Identity &amp; access</td><td>JWT access and refresh tokens, 9 roles, password reset by email, parent account invitations</td></tr>
+<tr><td>SIS</td><td>Students</td><td>Admissions, classes and sections, sibling linking, parents per student, RFID card numbers, export</td></tr>
+<tr><td>SIS</td><td>Attendance</td><td>Check-in / check-out, bulk and quick marking, class roster, daily summary, monthly report</td></tr>
+<tr><td>SIS</td><td>Fees</td><td>Fee structures, single and bulk invoices, payments (cash, bank transfer, cheque, Razorpay reference), waivers, overdue marking, concessions and sibling discounts, defaulters, collection summary, SMS on invoice</td></tr>
+<tr><td>SIS</td><td>Staff</td><td>Staff records, leave balances and requests with review, shifts, payroll report and payslip download</td></tr>
+<tr><td>SIS</td><td>Transport</td><td>Vehicles, routes and stops, student assignment, daily trips, boarding and drop logs, driver schedule, trip and student reports</td></tr>
+<tr><td>SIS</td><td>Classroom</td><td>Subjects and timetables (templates and slots, teacher schedules), daily journals with mood, developmental observations (domains and milestones), homework</td></tr>
+<tr><td>SIS</td><td>Reports</td><td>Progress-card templates assigned per class, per-student progress cards</td></tr>
+<tr><td>SIS</td><td>Calendar</td><td>Academic years, terms, events, working days; bulk promotion with enrollment history</td></tr>
+<tr><td>SIS</td><td>Communication</td><td>Announcements, circulars with acknowledgement, parent–teacher messaging with unread counts</td></tr>
+<tr><td>SIS</td><td>Parent portal</td><td>Dashboard, attendance, fees and payments, journal, progress, homework, transport, messages</td></tr>
+<tr><td>SIS</td><td>Analytics &amp; AI</td><td>Dashboards (attendance trend, fee collection, staff, leave); nightly AI insights; AI-drafted journal notes</td></tr>
+<tr><td>SIS</td><td>Integration</td><td>Per-school API keys for external systems (<code>X-Api-Key</code>)</td></tr>
+<tr><td>AMS</td><td>Curriculum</td><td>Curriculum areas and activities by level, prerequisites; default Montessori curriculum (Casa, Lower El, Upper El) seeded per school</td></tr>
+<tr><td>AMS</td><td>Progress</td><td>Per-child, per-activity status (not started → introduced → practising → mastered) with dates and notes; progress report</td></tr>
+<tr><td>AMS</td><td>Content</td><td>Worksheets (upload or AI-generated), lesson plans, question papers; draft and publish</td></tr>
+<tr><td>AMS</td><td>Assignments</td><td>Assign any content item to a class or a child, with due date</td></tr>
+<tr><td>AMS</td><td>AI usage</td><td>Token and cost metering per school and per feature, shared with the SIS</td></tr>
+</tbody>
+</table>
+
+<h3 id="out-of-scope">Out of scope / not built</h3>
+<p>Online fee checkout (payments are recorded, not collected, in-app), native mobile apps
+(the web apps are responsive), push notifications, live GPS bus tracking, the RFID
+reader's device endpoint (card numbers and the reader firmware exist; the tap endpoint
+is not yet wired), multi-factor authentication, self-service school sign-up and billing,
+and migration tooling for data from other school systems.</p>
+
+<h2 id="context">2. System context</h2>
+<pre class="mermaid">flowchart LR
+    subgraph People
+        PA[Platform admin]
+        ST[School staff: owner, principal, teachers, accountant]
+        DR[Driver]
+        PR[Parent]
+    end
+
+    SIS[Taji One - SIS: Angular SPA + Node.js API]
+    AMS[Taji AMS: Angular SPA + Node.js API]
+
+    SDB[(SIS PostgreSQL)]
+    ADB[(AMS PostgreSQL)]
+    RD[(Redis)]
+    AI[Claude API - Anthropic]
+    BR[Brevo - SMS and email]
+
+    PA --> SIS
+    ST --> SIS
+    DR --> SIS
+    PR --> SIS
+    ST -->|single sign-on| AMS
+    SIS --> SDB
+    SIS --> RD
+    SIS --> AI
+    SIS --> BR
+    AMS --> ADB
+    AMS -->|auth, classes, students| SIS
+    AMS -->|AI usage log| SDB
+    AMS --> AI
+</pre>
+
+<h2 id="structure">3. Solution structure</h2>
+<p>One TypeScript monorepo (npm workspaces). Each API is Node.js 22 with Express 5 and
+the <code>pg</code> driver, written as ES modules; each frontend is an Angular
+standalone-component SPA.</p>
+<pre class="mermaid">flowchart TB
+    subgraph apps
+        WEB[apps/web - SIS SPA: admin, parent and driver areas]
+        API[apps/api - SIS API: 19 modules]
+        AWEB[apps/ams-web - AMS SPA]
+        AAPI[apps/ams-api - AMS API: 8 modules]
+    end
+    subgraph packages
+        SH[packages/shared - roles, statuses, types]
+        DB[packages/database - SIS migrations]
+    end
+    WEB -->|/api/v1| API
+    AWEB -->|/api/v1| AAPI
+    AAPI -->|HTTP| API
+    API -.-> SH
+    DB -.->|migrations| API
+</pre>
+<p>SIS modules: auth, students, attendance, fees, staff, transport, timetable, calendar,
+communication, journal, observations, reports, promotion, parent (and homework), analytics,
+ai, integration, sms, platform-admin. AMS modules: auth, curriculum, worksheets,
+lesson-plans, question-papers, assignments, sis-proxy, ai-usage.</p>
+
+<h2 id="tenancy">4. Multi-tenancy and request pipeline</h2>
+<p>Each school is a tenant with its own PostgreSQL schema (<code>tenant_&lt;code&gt;</code>)
+in the SIS database, and a schema of the same name in the AMS database. Shared tables
+(tenants, plans, platform admins, API keys, AI usage) live in <code>public</code>.
+New SIS schemas are created from a template procedure (<code>create_tenant_schema()</code>);
+AMS schemas are provisioned on first use.</p>
+<pre class="mermaid">flowchart LR
+    R[HTTP request] --> SEC[helmet, CORS, rate limit 200/min per IP]
+    SEC --> P{Route}
+    P -- /auth, /platform, /health --> C1[Public or platform handlers]
+    P -- all other /api/v1 --> JWT[JWT verify]
+    JWT --> T[Tenant schema taken from signed token claim]
+    T --> RB[Role check per route]
+    RB --> C[Controller / service]
+    C --> Q[(Queries scoped to tenant schema)]
+</pre>
+<ul>
+<li>The school is identified at login, by school code or by subdomain
+(<code>{code}.ahamsys.com</code>; the login page detects it). The tenant schema is embedded in the
+signed JWT, so no per-request lookup is needed and it cannot be switched by the client.</li>
+<li>Platform-admin tokens are separate and only accepted on <code>/platform</code> routes.</li>
+<li>The AMS runs <code>provisionTenant()</code> on each authenticated request: it creates the
+schema if missing, applies every table with <code>IF NOT EXISTS</code> and seeds the default
+curriculum once. Schema changes therefore roll out without a separate migration step.</li>
+</ul>
+
+<h2 id="data-model">5. Data model</h2>
+<p>Main entities per school. SIS tables live in the SIS database; AMS tables in the AMS
+database, referencing SIS students and classes by ID.</p>
+<p><strong>SIS: students, families and fees</strong></p>
+<pre class="mermaid">erDiagram
+    CLASSES ||--o{ STUDENTS : enrolls
+    STUDENTS ||--o{ STUDENT_PARENTS : has
+    STUDENT_PARENTS }o--o| PARENT_ACCOUNTS : "portal login"
+    STUDENTS ||--o{ STUDENT_ENROLLMENTS : "year history"
+    STUDENTS ||--o{ ATTENDANCE : records
+    STUDENTS ||--o{ FEE_INVOICES : owes
+    FEE_STRUCTURES ||--o{ FEE_INVOICES : bills
+    FEE_INVOICES ||--o{ FEE_PAYMENTS : "settled by"
+</pre>
+<p><strong>SIS: classroom, staff and transport</strong></p>
+<pre class="mermaid">erDiagram
+    STUDENTS ||--o{ DAILY_JOURNALS : "daily note"
+    STUDENTS ||--o{ OBSERVATIONS : observed
+    OBS_DOMAINS ||--o{ OBS_MILESTONES : defines
+    TIMETABLES ||--o{ TIMETABLE_SLOTS : has
+    STAFF ||--o{ LEAVE_REQUESTS : files
+    TRANSPORT_ROUTES ||--o{ ROUTE_STOPS : has
+    TRANSPORT_ROUTES ||--o{ ROUTE_STUDENTS : carries
+    TRIPS ||--o{ TRIP_BOARDINGS : logs
+</pre>
+<p><strong>AMS (per school schema)</strong></p>
+<pre class="mermaid">erDiagram
+    CURRICULUM_AREAS ||--o{ CURRICULUM_ACTIVITIES : contains
+    CURRICULUM_ACTIVITIES ||--o{ CHILD_ACTIVITY_PROGRESS : "tracked in"
+    CURRICULUM_AREAS {
+        uuid id
+        string name
+        int sequence
+    }
+    CURRICULUM_ACTIVITIES {
+        uuid id
+        string name
+        enum level "casa, lower_el, upper_el"
+        uuid prerequisite_id
+    }
+    CHILD_ACTIVITY_PROGRESS {
+        uuid student_id "SIS student"
+        enum status "not_started to mastered"
+        date mastered_at
+    }
+    ASSIGNMENTS {
+        enum content_type "worksheet, lesson_plan, question_paper, curriculum_area"
+        uuid content_id
+        uuid class_id "or student_id"
+        date due_date
+    }
+</pre>
+<p>Other SIS tables: announcements, circulars and acknowledgements, messages, calendar events,
+shifts and leave balances, staff details, subjects, period and timetable templates, report
+templates, vehicles, student transport fees, trip locations, promotion batches and audit logs.</p>
+<p>Design principles</p>
+<ul>
+<li><strong>Isolation by schema.</strong> A query can only reach the schema named in the caller's token.</li>
+<li><strong>AMS never copies SIS master data.</strong> Students and classes are read live from the SIS, so
+there is one source of truth.</li>
+<li><strong>Curriculum is data.</strong> Areas, activities, levels and prerequisites are editable per school,
+seeded from a default Montessori curriculum.</li>
+</ul>
+
+<h2 id="integration">6. SIS–AMS integration</h2>
+<h3 id="sso">6.1 Single sign-on</h3>
+<pre class="mermaid">sequenceDiagram
+    actor T as Teacher
+    participant SW as SIS web
+    participant AW as AMS web
+    participant AA as AMS API
+    participant SA as SIS API
+    T->>SW: click "AMS" in the menu
+    SW->>AW: open /sso with the current session token
+    AW->>AW: store token, strip it from the URL and history
+    AW->>AA: API calls with Bearer token
+    AA->>AA: verify JWT with the shared signing secret
+    AA->>AA: provision tenant schema if needed
+    AA-->>AW: data for the teacher's school
+</pre>
+<p>Both APIs share the JWT access-token secret, so a token issued by the SIS is valid in the
+AMS for the same school and roles. AMS login and token refresh are delegated to the SIS
+auth endpoints.</p>
+<h3 id="sis-data">6.2 Reading SIS data</h3>
+<p>The AMS <code>sis-proxy</code> module forwards the caller's token to the SIS for
+<code>/students</code>, <code>/classes</code> and <code>/subjects</code>. Access rules are
+therefore always the SIS's own.</p>
+<h3 id="api-keys">6.3 External API keys</h3>
+<p>School admins create and revoke API keys in the SIS. Keys are stored hashed with the
+owning tenant schema, and calls authenticate with the <code>X-Api-Key</code> header.</p>
+
+<h2 id="ai">7. AI features</h2>
+<table>
+<thead><tr><th>Product</th><th>Feature</th><th>How it works</th></tr></thead>
+<tbody>
+<tr><td>SIS</td><td>Nightly insights</td><td>Scheduled job at 02:00 per school: detects sudden attendance drops, chronic absenteeism and fee-default risk (days overdue, prior late and partial payments). Insights have a severity and are resolved by staff.</td></tr>
+<tr><td>SIS</td><td>Journal note assist</td><td>Drafts a 3–5 sentence teacher's note for a child's daily journal from mood and activities. The teacher edits before publishing.</td></tr>
+<tr><td>AMS</td><td>Content generation</td><td>Generates worksheets, lesson plans and question papers from subject, level, topic and constraints (marks, difficulty, question types) as editable HTML drafts.</td></tr>
+<tr><td>Both</td><td>Usage metering</td><td>Every AI call logs input and output tokens and cost against the school and feature in a shared table, visible to the school and the platform admin.</td></tr>
+</tbody>
+</table>
+<p>Model: Anthropic Claude via the official SDK. AI output is always a draft for a person
+to review; nothing is published or sent automatically.</p>
+
+<h2 id="flows">8. Key workflows</h2>
+<p><strong>Fee invoicing</strong></p>
+<pre class="mermaid">sequenceDiagram
+    actor A as Accountant
+    participant API as SIS API
+    participant DB as Tenant schema
+    participant SMS as Brevo SMS
+    A->>API: POST /fees/invoices/bulk (structure, class, due date)
+    API->>API: apply concessions and sibling discounts
+    API->>DB: insert invoices
+    API->>SMS: notify parent mobile (if configured)
+    A->>API: POST /fees/invoices/{id}/pay (method, amount, reference)
+    API->>DB: record payment, update balance and status
+</pre>
+<p><strong>Child progress in AMS</strong></p>
+<pre class="mermaid">stateDiagram-v2
+    [*] --> not_started
+    not_started --> introduced: presented
+    introduced --> practicing: working independently
+    practicing --> mastered: demonstrated
+    mastered --> [*]
+</pre>
+
+<h2 id="security">9. Security model</h2>
+<table>
+<thead><tr><th>Concern</th><th>Control</th></tr></thead>
+<tbody>
+<tr><td>Cross-school access</td><td>Schema per school; schema taken only from the signed token</td></tr>
+<tr><td>Authentication</td><td>Short-lived JWT access tokens (15 min) with refresh tokens (7 days); bcrypt password hashes; email reset links</td></tr>
+<tr><td>Authorisation</td><td>Role checks on every route; parent routes limited to the parent's own children</td></tr>
+<tr><td>Platform separation</td><td>Platform-admin tokens only valid on <code>/platform</code> routes</td></tr>
+<tr><td>Abuse</td><td>Global rate limit (200 requests/min per IP), helmet security headers, CORS allow-list, request-size limits</td></tr>
+<tr><td>Input</td><td>Request validation with zod and express-validator schemas</td></tr>
+<tr><td>Integration keys</td><td>Hashed at rest, revocable, scoped to one school</td></tr>
+<tr><td>SSO token handling</td><td>Token removed from the URL and browser history immediately on arrival</td></tr>
+<tr><td>Transport</td><td>HTTPS at the edge; databases over TLS</td></tr>
+<tr><td>Secrets</td><td>Environment files on the server only, never in source control</td></tr>
+</tbody>
+</table>
+<p>Known weaknesses: no MFA, AMS uploads stored on local disk, and a shared signing secret
+between SIS and AMS (rotation must be coordinated).</p>
+
+<h2 id="api">10. API surface</h2>
+<p>Both APIs use base path <code>/api/v1</code> and expose <code>GET /health</code>.</p>
+<table>
+<thead><tr><th>Product</th><th>Group</th><th>Main endpoints</th></tr></thead>
+<tbody>
+<tr><td>SIS</td><td>Auth</td><td><code>POST /auth/login | refresh | logout | forgot-password | reset-password</code>, <code>GET /auth/tenant/{code}</code></td></tr>
+<tr><td>SIS</td><td>Students</td><td><code>/students</code> CRUD, <code>/students/classes</code>, parents, siblings, portal accounts, <code>/students/export</code></td></tr>
+<tr><td>SIS</td><td>Attendance</td><td><code>POST /attendance/check-in | check-out | bulk-mark | quick-mark</code>, <code>GET /attendance/roster | daily-summary | monthly-report</code></td></tr>
+<tr><td>SIS</td><td>Fees</td><td><code>/fees/structures</code>, <code>/fees/invoices</code> (+ <code>/bulk</code>, <code>/{id}/pay</code>, <code>/{id}/waive</code>), <code>/fees/concessions</code>, <code>/fees/defaulters</code>, <code>/fees/collection-summary</code></td></tr>
+<tr><td>SIS</td><td>Staff</td><td><code>/staff</code> CRUD, <code>/staff/leave/*</code>, <code>/staff/shifts</code>, <code>/staff/payroll/*</code></td></tr>
+<tr><td>SIS</td><td>Transport</td><td><code>/transport/vehicles | routes | trips</code>, <code>/trips/{id}/board | drop | complete</code>, <code>/transport/driver/schedule</code></td></tr>
+<tr><td>SIS</td><td>Classroom</td><td><code>/timetable/*</code>, <code>/journals/*</code>, <code>/observations/*</code>, <code>/homework</code>, <code>/reports/templates | progress-card</code></td></tr>
+<tr><td>SIS</td><td>Calendar</td><td><code>/calendar/years | terms | events</code>, <code>/promotion/prepare | execute</code></td></tr>
+<tr><td>SIS</td><td>Communication</td><td><code>/communication/announcements | circulars | messages</code></td></tr>
+<tr><td>SIS</td><td>Parent</td><td><code>/parent/dashboard</code>, <code>/parent/students/{id}/attendance | fees | journal | progress | homework | transport</code>, messages</td></tr>
+<tr><td>SIS</td><td>AI &amp; analytics</td><td><code>/ai/insights</code>, <code>/ai/assist/remark</code>, <code>/ai/usage</code>, <code>/analytics/*</code></td></tr>
+<tr><td>SIS</td><td>Platform</td><td><code>/platform/auth/login</code>, <code>/platform/tenants</code>, <code>/platform/plans</code>, <code>/platform/ai-usage</code></td></tr>
+<tr><td>SIS</td><td>Integration</td><td><code>/integration/api-keys</code> (create, revoke, delete)</td></tr>
+<tr><td>AMS</td><td>Curriculum</td><td><code>/curriculum/areas</code>, <code>/areas/{id}/activities</code>, <code>/curriculum/progress/{studentId}</code> (+ <code>/report</code>)</td></tr>
+<tr><td>AMS</td><td>Content</td><td><code>/worksheets</code> (+ <code>/generate</code>, <code>/upload</code>), <code>/lesson-plans</code> (+ <code>/generate</code>), <code>/question-papers</code> (+ <code>/generate</code>)</td></tr>
+<tr><td>AMS</td><td>Other</td><td><code>/assignments</code>, <code>/sis/students | classes | subjects</code>, <code>/ai-usage</code>, <code>/auth/login | refresh | logout</code></td></tr>
+</tbody>
+</table>
+
+<h2 id="frontend">11. Frontend architecture</h2>
+<ul>
+<li>Angular standalone components with lazy-loaded routes; an HTTP interceptor attaches the bearer token and refreshes it on expiry.</li>
+<li>SIS route areas: <code>/login</code>, staff areas (dashboard, students, attendance, fees, classes,
+timetable, journal, homework, observations, reports, calendar, staff, transport, communication,
+parents, academic years, AI insights, integration), <code>/parent/*</code> portal,
+<code>/driver</code> view and <code>/platform/*</code> console.</li>
+<li>AMS route areas: worksheets, lesson plans, question papers, curriculum, progress,
+assignments, AI insights and <code>/sso</code>.</li>
+<li>Both SPAs call their API on the same origin (<code>/api/v1</code>), so no cross-origin requests are needed in production.</li>
+</ul>
+
+<h2 id="deployment">12. Deployment and operations</h2>
+<pre class="mermaid">flowchart LR
+    U[Browser] -->|HTTPS| EDGE[CDN / TLS edge]
+    EDGE --> RP[Nginx reverse proxy]
+    RP -->|static| W1[SIS SPA files]
+    RP -->|static| W2[AMS SPA files]
+    RP -->|/api| C1[SIS API container]
+    RP -->|/api| C2[AMS API container]
+    C1 --> RD[(Redis container)]
+    C1 --> PG1[(Managed PostgreSQL - SIS)]
+    C2 --> PG2[(Managed PostgreSQL - AMS)]
+    C2 -->|internal network| C1
+</pre>
+<ul>
+<li>APIs run as Docker containers from one Compose file; Nginx serves the Angular builds and
+routes <code>/api</code> by hostname. Proxy upstreams resolve through Docker DNS at request time,
+so a stopped API cannot prevent the proxy from starting.</li>
+<li>Portable by design: any Linux host with Docker, on our infrastructure, the client's cloud or
+on-premise. PostgreSQL 17 is managed; Redis runs alongside the APIs.</li>
+<li>Deploys are scripted: build locally, sync artefacts, rebuild the container, wait for
+<code>/health</code>. SIS schema changes use versioned migrations; AMS schemas update
+themselves on first request, or all at once with a provisioning script.</li>
+<li>Configuration is per-service environment files; the APIs are stateless apart from AMS uploads.</li>
+</ul>
+
+<h2 id="roadmap">13. Roadmap and open decisions</h2>
+<ol>
+<li>Online fee payments (Razorpay checkout and webhooks) from the parent portal.</li>
+<li>RFID reader endpoint for tap-to-mark attendance and bus boarding (firmware ready).</li>
+<li>Push notifications and native mobile apps for parents and drivers.</li>
+<li>Live bus location for parents.</li>
+<li>MFA for staff; per-service signing keys instead of a shared SSO secret.</li>
+<li>Object storage for AMS uploads.</li>
+<li>Deeper SIS–AMS links: AMS mastery feeding SIS progress cards automatically.</li>
+<li>Self-service school onboarding and subscription billing.</li>
+</ol>
+  </main>
+</div>
+<footer><div class="wrap"><span>© 2026 Ahamsys Consultancy Pvt. Ltd.</span><span><a href="https://www.ahamsys.com/taji/">← Taji on ahamsys.com</a></span></div></footer>
+<script src="https://www.ahamsys.com/assets/site.js?v=2"></script>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'strict', flowchart: { htmlLabels: true } });
+</script>
+</body>
+</html>
